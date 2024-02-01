@@ -43,7 +43,7 @@ def interp1d(x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tens
     assert x.shape[-1] > 1 and y.shape[-1] > 1, "x and y must have at least 2 points"
 
     # Evaluate the forward difference
-    slope = (y[:, 1:] - y[:, :-1]) / (x[:, 1:] - x[:, :-1] + EPSILON) # B, N-1
+    slope = (y[:, 1:] - y[:, :-1]) / (x[:, 1:] - x[:, :-1] + EPSILON)  # B, N-1
 
     # Get the first indices of x where each xnew value could be inserted into x without disrupting the sort.
     # That is, for each value v in xnew, an index i is returned which satisfies:
@@ -68,6 +68,7 @@ def interp1d(x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tens
     ynew = ynew + ynew_offset
 
     return ynew
+
 
 def fuzzy_nand(activations: torch.Tensor) -> torch.Tensor:
     """
@@ -103,12 +104,10 @@ class SparseAbacusLayer(nn.Module):
         self.n_out = n_out
         self.aggregator = aggregator
         self.degree = degree
+        self.sample_points_predictor = sample_points_predictor
 
-        self.register_buffer("pos", torch.linspace(0, 1, n_in))
 
-        if sample_points_predictor is not None:
-            self.sample_points_predictor = sample_points_predictor
-        else:
+        if self.sample_points_predictor is None:
             self.sample_points = nn.Parameter(torch.rand(n_out, degree))
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
@@ -118,20 +117,23 @@ class SparseAbacusLayer(nn.Module):
         """
         batch_size = activations.shape[0]
 
-        if self.sample_points_predictor is not None:
-            sample_points = self.sample_points_predictor(activations)
-        else:
+        if self.sample_points_predictor is None:
             sample_points = self.sample_points
             sample_points = sample_points.expand(
                 batch_size, -1, -1
             )  # B x N_out x degree
+        else:
+            sample_points = self.sample_points_predictor(activations)
 
         sample_points = torch.clamp(sample_points, 0, 1)
 
         # Make activations continuous and sample from them at variable points
+
+        x = torch.linspace(0, 1, self.n_in).repeat(batch_size, 1)  # B x N_in
+
         activations = torch.clamp(activations, 0, 1)
         activations = interp1d(
-            self.pos.expand(batch_size, -1),  # B x N_in
+            x,  # B x N_in
             activations,  # B x N_in
             sample_points.view(batch_size, -1),  # B x (N_out * degree)
         )  # B x (N_out * degree)

@@ -20,6 +20,6 @@ for i in range(10000):
     numpys = torch.from_numpy(np.interp(x_new[1], x[1], y[1], left=0, right=0)).float()
     errors.append((torchs[1] - numpys).abs().max())
 print(f"Time: {(time.time() - start)}")
-print(f"Error = {sum(errors)/len(errors)} +- {np.std(errors)} (max = {max(errors)})")   
+print(f"Error = {sum(errors)/len(errors)} +- {np.std(errors)} (max = {max(errors)})")
 
 # %%
