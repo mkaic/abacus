@@ -1,26 +1,24 @@
 #!/usr/bin/env python3
 # encoding: utf-8
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import numpy as np
+from typing import Callable
+
+
+EPSILON = 1e-8
 
 # +
 # Many thanks to user enrico-stauss on the PyTorch forums for this implementation,
 # which I have butchered to fit my specific needs.
 # https://discuss.pytorch.org/t/linear-interpolation-in-pytorch/66861/10
 
-
-# # Generate random sorted and unique x values in the range from -21 to 19 and corresponding y values
-# x = torch.linspace(0, 1, 5)
-# y = torch.rand_like(x)
-
-# # Set the new sample points to the range [-25, 25]
-# x_new = torch.linspace(0, 1, 24)
+# Additional thanks to GitHub user aliutkus, whose implementation I used as a reference
+# https://github.com/aliutkus/torchinterp1d/blob/master/torchinterp1d/interp1d.py
 
 
 def interp1d(x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
     """
+    Given input points x, values y, and desired sampling points xnew, return the linearly interpolated values ynew at xnew.
     :param x: The original coordinates.
     :param y: The original values.
     :param xnew: The xnew points to which y shall be interpolated.
@@ -33,43 +31,54 @@ def interp1d(x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tens
         or torch.any(x > 1)
     ), "All x and xnew values must be in [0,1]"
 
+    assert not (
+        torch.any(xnew < x.min(dim=-1).values.unsqueeze(-1))
+        or torch.any(xnew > x.max(dim=-1).values.unsqueeze(-1))
+    )
+
+    assert x.shape == y.shape, "x and y must have the same shape"
+    assert (
+        x.dim() == 2 and y.dim() == 2 and xnew.dim() == 2
+    ), "x, y, and xnew must be 2D"
+    assert x.shape[-1] > 1 and y.shape[-1] > 1, "x and y must have at least 2 points"
+
     # Evaluate the forward difference
-    slope = (y[1:] - y[:-1]) / (x[1:] - x[:-1])
+    slope = (y[:, 1:] - y[:, :-1]) / (x[:, 1:] - x[:, :-1] + EPSILON) # B, N-1
 
-    # Get the indices of the closest point to the left for each xnew point
-    xnew_closest_left_indices = torch.searchsorted(x, xnew)
+    # Get the first indices of x where each xnew value could be inserted into x without disrupting the sort.
+    # That is, for each value v in xnew, an index i is returned which satisfies:
+    # x[i-1] < v <= x[i]
+    # i-1 therefore gives the index of highest value in x which is still less than v.
+    xnew_searchsort_left_indices = torch.searchsorted(x, xnew) - 1
 
-    print(xnew)
-    print(xnew_closest_left_indices)
+    # Number of intervals is x.shape-1
+
+    xnew_searchsort_left_indices = torch.clamp(
+        xnew_searchsort_left_indices,
+        0,
+        (x.shape[-1] - 1),
+    )
 
     # Get the offset from the point to the left to the xnew point
-    xnew_offset = xnew - x[xnew_closest_left_indices]
+    xnew_offset = xnew - x.gather(dim=-1, index=xnew_searchsort_left_indices)
 
     # Calculate the value for the nonzero xnew: value of the point to the left plus slope times offset
-    ynew = (
-        y[xnew_closest_left_indices]
-        + slope[xnew_closest_left_indices - 1] * xnew_offset
-    )
+    ynew = y.gather(dim=-1, index=xnew_searchsort_left_indices)
+    ynew_offset = slope.gather(dim=-1, index=xnew_searchsort_left_indices) * xnew_offset
+    ynew = ynew + ynew_offset
 
     return ynew
 
-
-# plt.plot(x_new, interp1d(x, y, x_new) - 0.02, "go", label="Custom interpolation")
-# plt.plot(x_new, np.interp(x_new, x, y, left=0, right=0) + 0.02, "ro", label="np.interp")
-# plt.plot(x, y, "b--", label="original values")
-# plt.legend()
-# plt.show()
-
 def fuzzy_nand(activations: torch.Tensor) -> torch.Tensor:
-        """
-        Assuming fuzzy AND is multiplication and fuzzy NOT is (1 - x), fuzzy NAND is therefore defined as (NOT a) AND (NOT b), or: (1 - a) * (1 - b).
-        :param activations: Expected shape: (B x N x degree). Each value is assumed to be in [0, 1].
-        :return: Aggregated inputs, of shape (B x N).
-        """
-      # 
-        activations = 1 - activations
-        activations = torch.prod(activations, dim=-1)
-        return activations
+    """
+    Assuming fuzzy AND is multiplication and fuzzy NOT is (1 - x), fuzzy NAND is therefore defined as (NOT a) AND (NOT b), or: (1 - a) * (1 - b).
+    :param activations: Expected shape: (B x N x degree). Each value is assumed to be in [0, 1].
+    :return: Aggregated inputs, of shape (B x N).
+    """
+    #
+    activations = 1 - activations
+    activations = torch.prod(activations, dim=-1)
+    return activations
 
 
 class SparseAbacusLayer(nn.Module):
@@ -82,38 +91,52 @@ class SparseAbacusLayer(nn.Module):
     """
 
     def __init__(
-        self, n_in: int, n_out: int, sample_points_predictor: nn.Module = None
+        self,
+        n_in: int,
+        n_out: int,
+        aggregator: Callable = fuzzy_nand,
+        degree: int = 2,
+        sample_points_predictor: nn.Module = None,
     ) -> None:
         super().__init__()
         self.n_in = n_in
         self.n_out = n_out
+        self.aggregator = aggregator
+        self.degree = degree
 
         self.register_buffer("pos", torch.linspace(0, 1, n_in))
 
         if sample_points_predictor is not None:
             self.sample_points_predictor = sample_points_predictor
         else:
-            self.sample_points = nn.Parameter(torch.rand(n_out, 2))
+            self.sample_points = nn.Parameter(torch.rand(n_out, degree))
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
         :param activations: Expected shape: (B x N_in). Will be clamped to [0, 1].
         :return: Expected shape: (B x N_out).
         """
+        batch_size = activations.shape[0]
+
         if self.sample_points_predictor is not None:
             sample_points = self.sample_points_predictor(activations)
         else:
             sample_points = self.sample_points
+            sample_points = sample_points.expand(
+                batch_size, -1, -1
+            )  # B x N_out x degree
 
         sample_points = torch.clamp(sample_points, 0, 1)
 
         # Make activations continuous and sample from them at variable points
         activations = torch.clamp(activations, 0, 1)
         activations = interp1d(
-            self.pos, activations, sample_points.view(-1)
-        )  # B x 2N_out
-        activations = activations.view(*self.sample_points.shape)  # B x N_out x 2
+            self.pos.expand(batch_size, -1),  # B x N_in
+            activations,  # B x N_in
+            sample_points.view(batch_size, -1),  # B x (N_out * degree)
+        )  # B x (N_out * degree)
+        activations = activations.view(sample_points.shape)  # B x N_out x degree
 
-        activations = self.aggregator(activations)
+        activations = self.aggregator(activations)  # B x N_out
 
         return activations
