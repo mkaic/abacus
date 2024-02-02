@@ -95,9 +95,10 @@ class SparseAbacusLayer(nn.Module):
         self,
         n_in: int,
         n_out: int,
-        aggregator: Callable = fuzzy_nand,
+        aggregator: Callable[[torch.Tensor], torch.Tensor] = fuzzy_nand,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
+        lookbehind: int = 1,
     ) -> None:
         super().__init__()
         self.n_in = n_in
@@ -105,7 +106,7 @@ class SparseAbacusLayer(nn.Module):
         self.aggregator = aggregator
         self.degree = degree
         self.sample_points_predictor = sample_points_predictor
-
+        self.lookbehind = lookbehind
 
         if self.sample_points_predictor is None:
             self.sample_points = nn.Parameter(torch.rand(n_out, degree))
