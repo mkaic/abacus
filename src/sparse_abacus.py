@@ -130,7 +130,7 @@ class SparseAbacusLayer(nn.Module):
 
         # Make activations continuous and sample from them at variable points
 
-        x = torch.linspace(0, 1, self.n_in).repeat(batch_size, 1)  # B x N_in
+        x = torch.linspace(0, 1, self.n_in, device=activations.device).repeat(batch_size, 1)  # B x N_in
 
         activations = torch.clamp(activations, 0, 1)
         activations = interp1d(

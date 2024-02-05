@@ -17,7 +17,7 @@ class SparseAbacusModel(nn.Module):
     def __init__(
         self,
         activation_dims: List[int],
-        data_dependent: int = 0,
+        data_dependent: bool = False,
         degree: int = 2,
         aggregator: Callable[[torch.Tensor], torch.Tensor] = fuzzy_nand,
         lookbehind: int = 1,
@@ -26,7 +26,6 @@ class SparseAbacusModel(nn.Module):
         self.layers = nn.ModuleList()
 
         for i in range(len(activation_dims) - 1):
-
             # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
             if data_dependent:
                 sample_points_predictor = SparseAbacusLayer(
@@ -52,13 +51,15 @@ class SparseAbacusModel(nn.Module):
             )
 
         param_count = sum(p.numel() for p in self.parameters())
-        print(f"Initialized SparseAbacusModel with {param_count:,} total trainable parameters.")
+        print(
+            f"Initialized SparseAbacusModel with {param_count:,} total trainable parameters."
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             x = layer(x)
         return x
-    
+
     def clamp_params(self):
         for p in self.parameters():
             p.data.clamp_(0, 1)
