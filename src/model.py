@@ -16,7 +16,9 @@ class SparseAbacusModel(nn.Module):
 
     def __init__(
         self,
-        activation_dims: List[int],
+        input_dim: int,
+        layer_dims: List[int],
+        output_dim: int,
         data_dependent: bool = False,
         degree: int = 2,
         aggregator: Callable[[torch.Tensor], torch.Tensor] = fuzzy_nand,
@@ -25,12 +27,13 @@ class SparseAbacusModel(nn.Module):
         super().__init__()
         self.layers = nn.ModuleList()
 
-        for i in range(len(activation_dims) - 1):
+        activations_dims = [input_dim, *layer_dims, output_dim]
+        for i in range(len(activations_dims) - 1):
             # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
             if data_dependent:
                 sample_points_predictor = SparseAbacusLayer(
-                    n_in=activation_dims[i],
-                    n_out=activation_dims[i + 1] * 2,
+                    input_dims=activations_dims[i],
+                    output_dims=activations_dims[i + 1] * 2,
                     degree=degree,
                     aggregator=aggregator,
                     sample_points_predictor=None,
@@ -41,8 +44,8 @@ class SparseAbacusModel(nn.Module):
 
             self.layers.append(
                 SparseAbacusLayer(
-                    n_in=activation_dims[i],
-                    n_out=activation_dims[i + 1],
+                    input_dims=activations_dims[i],
+                    output_dims=activations_dims[i + 1],
                     degree=degree,
                     aggregator=aggregator,
                     sample_points_predictor=sample_points_predictor,

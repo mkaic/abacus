@@ -2,7 +2,7 @@
 import torch
 from ..src.sparse_abacus import SparseAbacusLayer
 
-layer = SparseAbacusLayer(n_in=64, n_out=32)
+layer = SparseAbacusLayer(input_dims=64, output_dims=32)
 
 input = torch.rand(4, 64)
 
