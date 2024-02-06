@@ -10,8 +10,8 @@ from tqdm import tqdm
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 128
 
-imsize = (32*32*3)
-layer_dims = [imsize//2, imsize//4, imsize//8, imsize//16]
+imsize = 32 * 32 * 3
+layer_dims = [imsize // 2, imsize // 4, imsize // 8, imsize // 16]
 layer_dims = [s * 8 for s in layer_dims]
 model = SparseAbacusModel(input_dim=imsize, layer_dims=layer_dims, output_dim=100)
 model = model.to(DEVICE)
@@ -33,7 +33,7 @@ for epoch in range(100):
     pbar = tqdm(train_loader, leave=False)
     for x, y in pbar:
         optimizer.zero_grad()
-        
+
         x, y = x.to(DEVICE), y.to(DEVICE)
 
         B = x.shape[0]
@@ -41,12 +41,14 @@ for epoch in range(100):
 
         loss = criterion(y_hat, y)
         loss.backward()
-        
+
         optimizer.step()
 
         model.clamp_params()
 
-        pbar.set_description(f"Epoch {epoch}. Train: {loss.item():.4f}, Test: {test_accuracy:.2%}")
+        pbar.set_description(
+            f"Epoch {epoch}. Train: {loss.item():.4f}, Test: {test_accuracy:.2%}"
+        )
 
     model.eval()
     total = 0

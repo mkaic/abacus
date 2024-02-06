@@ -3,6 +3,9 @@
 import torch
 import torch.nn as nn
 from typing import Callable
+from collections.abc import Iterable
+from torch.nn.functional import grid_sample
+from functools import partial
 
 
 EPSILON = 1e-8
@@ -86,30 +89,43 @@ class SparseAbacusLayer(nn.Module):
     """
     Each neuron in the layer can sample from the input tensor at different points, and then aggregates those samples in some manner. The sampling points can be simple learnable parameters, or they can be made data-dependent (a la attention) by being predicted on the fly from the input using a provided predictor.
 
-    :param n_in: The number of input neurons.
-    :param n_out: The number of output neurons.
+    :param input_shape: The shape of the input tensor, ignoring the batch dimension.
+    :param output_shape: The shape of the output tensor, ignoring the batch dimension.
+    :param aggregator: A function that takes the `degree` samples for each neuron and aggregates them into a single value. By default, this is the fuzzy NAND function because `degree` defaults to 2.
+    :param degree: The number of samples to take for each neuron. Defaults to 2 so that each neuron can act like a fuzzy binary logic gate.
     :param sample_points_predictor: A predictor that takes the input tensor and returns the sampling points for the output neurons.
+    :param lookbehind: The number of previous layers of activations the current layer can sample from. Defaults to 1. If set > 1, the network can theoretically learn skip-connections.
     """
 
     def __init__(
         self,
-        input_dims: int,
-        output_dims: int,
+        input_shape: int,
+        output_shape: int,
         aggregator: Callable[[torch.Tensor], torch.Tensor] = fuzzy_nand,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
         lookbehind: int = 1,
     ) -> None:
         super().__init__()
-        self.n_in = input_dims
-        self.n_out = output_dims
+        self.input_shape = (
+            input_shape if isinstance(input_shape, Iterable) else (input_shape,)
+        )
+        self.ndims_in = len(self.input_shape)
+
+        self.output_shape = (
+            output_shape if isinstance(output_shape, Iterable) else (output_shape,)
+        )
+        self.ndims_out = len(self.output_shape)
+
         self.aggregator = aggregator
         self.degree = degree
         self.sample_points_predictor = sample_points_predictor
         self.lookbehind = lookbehind
 
         if self.sample_points_predictor is None:
-            self.sample_points = nn.Parameter(torch.rand(output_dims, degree))
+            self.sample_points = nn.Parameter(
+                torch.rand(*output_shape, degree, self.ndims_in)
+            )
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
@@ -121,24 +137,68 @@ class SparseAbacusLayer(nn.Module):
         if self.sample_points_predictor is None:
             sample_points = self.sample_points
             sample_points = sample_points.expand(
-                batch_size, -1, -1
-            )  # B x N_out x degree
+                batch_size, [-1] * self.ndims_out, -1
+            )  # B x *self.output_shape x degree
         else:
             sample_points = self.sample_points_predictor(activations)
 
         sample_points = torch.clamp(sample_points, 0, 1)
 
+        activations = torch.clamp(activations, 0, 1)
+
         # Make activations continuous and sample from them at variable points
 
-        x = torch.linspace(0, 1, self.n_in, device=activations.device).repeat(batch_size, 1)  # B x N_in
+        if self.ndims == 1:  # 1D vector input case
+            x = torch.linspace(0, 1, self.n_in, device=activations.device).repeat(
+                batch_size, 1
+            )  # B x N_in
 
-        activations = torch.clamp(activations, 0, 1)
-        activations = interp1d(
-            x,  # B x N_in
-            activations,  # B x N_in
-            sample_points.view(batch_size, -1),  # B x (N_out * degree)
-        )  # B x (N_out * degree)
-        activations = activations.view(sample_points.shape)  # B x N_out x degree
+            activations = interp1d(
+                x,  # B x N_in
+                activations,  # B x N_in
+                sample_points,  # B x (N_out * degree)
+            )  # B x (N_out * degree)
+
+        elif (
+            self.ndims > 1 and self.ndims < 3
+        ):  # 2D (HxW) or 3D (CxHxW) image input cases
+            # imagining we have a B x C x H x W input and a B x N_out x degree sample_points tensor
+            # In order to allow for interpolation along the channel axis, we need to reshape the activations tensor to B x 1 x C x H x W so that grid_sample treats the channel dim as a a spatial dim
+            # Sample points tensor needs to be of shape B x 1 x 1 x (N_out * degree) x ndims_in.
+            # This will result in a sampled tensor of shape B x 1 x 1 x (N_out * degree)
+            # which we want to then reshape into B x N_out x degree
+
+            # First we collapse the degree dim into the last spatial dim
+            sample_points = torch.flatten(
+                sample_points, start_dim=-2, end_dim=-1
+            )  # B x *output_shape[:-1] x (output_shape[-1] * degree)
+            # In our example, this moves sample_points from B x N_out x degree to B x (N_out * degree)
+
+            # Next we need to add empty dims to sample_points until it
+            for _ in range(self.ndims_in - self.ndims_out):
+                sample_points = sample_points.unsqueeze(1)
+
+            activations = grid_sample(
+                activations.unsqueeze(
+                    1
+                ),  # B x 1 x *input_shape (looks like either a 1-channel image or a 1-channel 3D volume, either way we'll get proper interpolation from grid_sample now)
+                sample_points.unsqueeze(1),  # B x 1 x *output_shape x ndims
+                align_corners=False,
+                mode="bilinear",
+                padding_mode="reflection",
+            )
+
+            for _ in range(self.ndims_in - self.ndims_out):
+                activations = activations.squeeze(1)
+            # B x *output_shape x degree
+        else:
+            raise ValueError(
+                "Input shape must be 1D, 2D, or 2D plus a channel dimension."
+            )
+
+        activations = activations.view(
+            batch_size, *self.output_shape, self.degree
+        )  # B x N_out x degree
 
         activations = self.aggregator(activations)  # B x N_out
 
