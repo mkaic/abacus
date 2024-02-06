@@ -11,9 +11,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 128
 
 imsize = 32 * 32 * 3
-layer_dims = [imsize // 2, imsize // 4, imsize // 8, imsize // 16]
-layer_dims = [s * 8 for s in layer_dims]
-model = SparseAbacusModel(input_dim=imsize, layer_dims=layer_dims, output_dim=100)
+data_shapes = [(3, 32, 32), (128, 128), (1024,), (512,), (100,)]
+model = SparseAbacusModel(data_shapes=data_shapes)
 model = model.to(DEVICE)
 
 # Load the MNIST dataset
@@ -36,8 +35,7 @@ for epoch in range(100):
 
         x, y = x.to(DEVICE), y.to(DEVICE)
 
-        B = x.shape[0]
-        y_hat = model(x.view(B, -1))
+        y_hat = model(x)
 
         loss = criterion(y_hat, y)
         loss.backward()
@@ -57,8 +55,7 @@ for epoch in range(100):
         for x, y in tqdm(test_loader, leave=False):
             x, y = x.to(DEVICE), y.to(DEVICE)
 
-            B = x.shape[0]
-            y_hat = model(x.view(B, -1))
+            y_hat = model(x)
 
             _, predicted = torch.max(y_hat, 1)
             total += y.size(0)

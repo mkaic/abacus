@@ -5,7 +5,6 @@ import torch.nn as nn
 from typing import Callable
 from collections.abc import Iterable
 from torch.nn.functional import grid_sample
-from functools import partial
 
 
 EPSILON = 1e-8
@@ -117,6 +116,10 @@ class SparseAbacusLayer(nn.Module):
         )
         self.ndims_out = len(self.output_shape)
 
+        self.coordinate_dim = (
+            max(self.ndims_in, self.ndims_out) if not self.ndims_in == 1 else 1
+        )
+
         self.aggregator = aggregator
         self.degree = degree
         self.sample_points_predictor = sample_points_predictor
@@ -124,7 +127,7 @@ class SparseAbacusLayer(nn.Module):
 
         if self.sample_points_predictor is None:
             self.sample_points = nn.Parameter(
-                torch.rand(*output_shape, degree, self.ndims_in)
+                torch.rand(*output_shape, degree, self.coordinate_dim)
             )
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
@@ -137,7 +140,7 @@ class SparseAbacusLayer(nn.Module):
         if self.sample_points_predictor is None:
             sample_points = self.sample_points
             sample_points = sample_points.expand(
-                batch_size, [-1] * self.ndims_out, -1
+                batch_size, *[-1 for _ in range(self.ndims_out)], -1, -1
             )  # B x *self.output_shape x degree
         else:
             sample_points = self.sample_points_predictor(activations)
@@ -148,49 +151,48 @@ class SparseAbacusLayer(nn.Module):
 
         # Make activations continuous and sample from them at variable points
 
-        if self.ndims == 1:  # 1D vector input case
-            x = torch.linspace(0, 1, self.n_in, device=activations.device).repeat(
+        if self.ndims_in == 1:  # 1D vector input case
+            x = torch.linspace(
+                0, 1, self.input_shape[0], device=activations.device
+            ).repeat(
                 batch_size, 1
             )  # B x N_in
 
             activations = interp1d(
                 x,  # B x N_in
                 activations,  # B x N_in
-                sample_points,  # B x (N_out * degree)
+                sample_points.view(batch_size, -1),  # B x (N_out * degree)
             )  # B x (N_out * degree)
 
-        elif (
-            self.ndims > 1 and self.ndims < 3
-        ):  # 2D (HxW) or 3D (CxHxW) image input cases
-            # imagining we have a B x C x H x W input and a B x N_out x degree sample_points tensor
-            # In order to allow for interpolation along the channel axis, we need to reshape the activations tensor to B x 1 x C x H x W so that grid_sample treats the channel dim as a a spatial dim
-            # Sample points tensor needs to be of shape B x 1 x 1 x (N_out * degree) x ndims_in.
-            # This will result in a sampled tensor of shape B x 1 x 1 x (N_out * degree)
-            # which we want to then reshape into B x N_out x degree
+        elif self.ndims_in in (2, 3):  # 2D (HxW) or 3D (CxHxW) image input cases
+            # We collapse the degree dim into the last spatial dim
+            sample_points = sample_points.view(
+                batch_size,
+                *self.output_shape[:-1],
+                (self.output_shape[-1] * self.degree),
+                self.coordinate_dim,
+            )
 
-            # First we collapse the degree dim into the last spatial dim
-            sample_points = torch.flatten(
-                sample_points, start_dim=-2, end_dim=-1
-            )  # B x *output_shape[:-1] x (output_shape[-1] * degree)
-            # In our example, this moves sample_points from B x N_out x degree to B x (N_out * degree)
+            activations = activations.unsqueeze(1)
 
-            # Next we need to add empty dims to sample_points until it
-            for _ in range(self.ndims_in - self.ndims_out):
+            for _ in range(self.coordinate_dim - self.ndims_in):
+                activations = activations.unsqueeze(1)
+            for _ in range(self.coordinate_dim - self.ndims_out):
                 sample_points = sample_points.unsqueeze(1)
 
+            sample_points = sample_points * 2 - 1  # Convert from [0, 1] to [-1, 1]
+
             activations = grid_sample(
-                activations.unsqueeze(
-                    1
-                ),  # B x 1 x *input_shape (looks like either a 1-channel image or a 1-channel 3D volume, either way we'll get proper interpolation from grid_sample now)
-                sample_points.unsqueeze(1),  # B x 1 x *output_shape x ndims
+                activations,
+                sample_points,
                 align_corners=False,
                 mode="bilinear",
                 padding_mode="reflection",
             )
 
-            for _ in range(self.ndims_in - self.ndims_out):
+            for _ in range(self.coordinate_dim - self.ndims_in):
                 activations = activations.squeeze(1)
-            # B x *output_shape x degree
+
         else:
             raise ValueError(
                 "Input shape must be 1D, 2D, or 2D plus a channel dimension."

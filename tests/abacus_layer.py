@@ -1,18 +1,16 @@
 # %%
 import torch
 from ..src.sparse_abacus import SparseAbacusLayer
-
-layer = SparseAbacusLayer(input_dims=64, output_dims=32)
-
-input = torch.rand(4, 64)
+import itertools
 
 
-output = layer(input)
+shapes = [(3, 4, 4), (4, 4), (4,)]
+for input_shape, output_shape in itertools.product(shapes, shapes):
+    print(input_shape, output_shape)
+    layer = SparseAbacusLayer(
+        input_shape=input_shape, output_shape=output_shape, degree=2
+    )
+    input = torch.rand(4, *input_shape)
 
-print(output.shape)
-
-loss = output.mean()
-
-loss.backward()
-
-print(layer.sample_points.grad)
+    output = layer(input)
+    print(output.shape)

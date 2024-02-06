@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from typing import List, Callable
+from typing import List, Callable, Tuple
 
 from .sparse_abacus import SparseAbacusLayer, fuzzy_nand
 
@@ -8,17 +8,17 @@ from .sparse_abacus import SparseAbacusLayer, fuzzy_nand
 class SparseAbacusModel(nn.Module):
     """
     A neural network where neurons are free to move their own sparse connections.
-    :param activation_dims: How big the input vector should be at each layer. The first item in this list should be the size of the input vector.
+    :param data_shapes: Shapes of the input tensor, the activations at each layer, and output tensor.
     :param data_dependent: Whether the sampling points of each layer are predicted on-the-fly in a data-dependent manner, a la attention, or are simply directly trainable parameters. Default: False.
     :param degree: The number of inbound connections to each neuron. Default: 2. If any value more than 2 is chosen, you'll likely want to change the aggregation function used in SparseAbacusLayer, as it is designed for neurons with only 2 inputs.
+    :param aggregator: A function that takes the `degree` samples for each neuron and aggregates them into a single value. By default, this is the fuzzy NAND function because `degree` defaults to 2.
+    :param lookbehind: The number of previous layers of activations the current layer can sample from. Defaults to 1. If set > 1, the network can theoretically learn skip-connections.
     :return: None
     """
 
     def __init__(
         self,
-        input_dim: int,
-        layer_dims: List[int],
-        output_dim: int,
+        data_shapes: List[Tuple[int]],
         data_dependent: bool = False,
         degree: int = 2,
         aggregator: Callable[[torch.Tensor], torch.Tensor] = fuzzy_nand,
@@ -27,13 +27,12 @@ class SparseAbacusModel(nn.Module):
         super().__init__()
         self.layers = nn.ModuleList()
 
-        activations_dims = [input_dim, *layer_dims, output_dim]
-        for i in range(len(activations_dims) - 1):
+        for i in range(len(data_shapes) - 1):
             # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
             if data_dependent:
                 sample_points_predictor = SparseAbacusLayer(
-                    input_dims=activations_dims[i],
-                    output_dims=activations_dims[i + 1] * 2,
+                    input_shape=data_shapes[i],
+                    output_shape=data_shapes[i + 1],
                     degree=degree,
                     aggregator=aggregator,
                     sample_points_predictor=None,
@@ -44,8 +43,8 @@ class SparseAbacusModel(nn.Module):
 
             self.layers.append(
                 SparseAbacusLayer(
-                    input_dims=activations_dims[i],
-                    output_dims=activations_dims[i + 1],
+                    input_shape=data_shapes[i],
+                    output_shape=data_shapes[i + 1],
                     degree=degree,
                     aggregator=aggregator,
                     sample_points_predictor=sample_points_predictor,
