@@ -8,22 +8,37 @@ import torch.nn as nn
 from tqdm import tqdm
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 128
+BATCH_SIZE = 512
 
-imsize = 32 * 32 * 3
-data_shapes = [(3, 32, 32), (128, 128), (1024,), (512,), (100,)]
-model = SparseAbacusModel(data_shapes=data_shapes)
+DATA_SHAPES = [
+    (3, 32, 32),
+    (64, 64),
+    (64, 64),
+    (64, 64),
+    (64, 64),
+    1024,
+    512,
+    256,
+    128,
+    100,
+]
+LR = 1e-4
+DEGREE = 2
+
+print(f"{DATA_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {DEGREE=}, {LR=}")
+
+model = SparseAbacusModel(data_shapes=DATA_SHAPES, degree=DEGREE)
 model = model.to(DEVICE)
 
 # Load the MNIST dataset
 train = CIFAR100(root="./abacus/data", train=True, download=True, transform=ToTensor())
 test = CIFAR100(root="./abacus/data", train=False, download=True, transform=ToTensor())
 
-train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
-test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False)
+train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
+test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
 
 # Train the model
-optimizer = Adam(model.parameters(), lr=1e-5)
+optimizer = Adam(model.parameters(), lr=LR)
 criterion = nn.CrossEntropyLoss().to(DEVICE)
 
 test_accuracy = 0

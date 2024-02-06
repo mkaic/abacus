@@ -5,6 +5,7 @@ import torch.nn as nn
 from typing import Callable
 from collections.abc import Iterable
 from torch.nn.functional import grid_sample
+from typing import Tuple
 
 
 EPSILON = 1e-8
@@ -98,8 +99,8 @@ class SparseAbacusLayer(nn.Module):
 
     def __init__(
         self,
-        input_shape: int,
-        output_shape: int,
+        input_shape: Tuple[int],
+        output_shape: Tuple[int],
         aggregator: Callable[[torch.Tensor], torch.Tensor] = fuzzy_nand,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
@@ -126,9 +127,21 @@ class SparseAbacusLayer(nn.Module):
         self.lookbehind = lookbehind
 
         if self.sample_points_predictor is None:
-            self.sample_points = nn.Parameter(
-                torch.rand(*output_shape, degree, self.coordinate_dim)
-            )
+
+            # linspaces = [torch.linspace(0, 1, n) for n in self.output_shape]
+            # sample_points = torch.cartesian_prod(*linspaces)
+
+            # sample_points = sample_points.reshape(*self.output_shape, 1, self.ndims_out)
+
+            # sample_points = sample_points.expand(
+            #     *self.output_shape, self.degree, self.ndims_out
+            # )
+            # sample_points = sample_points + torch.rand_like(sample_points) * 0.01
+            # sample_points = torch.clamp(sample_points, 0, 1)
+
+            sample_points = torch.rand(*self.output_shape, self.degree, self.ndims_in)
+
+            self.sample_points = nn.Parameter(sample_points)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
@@ -140,13 +153,12 @@ class SparseAbacusLayer(nn.Module):
         if self.sample_points_predictor is None:
             sample_points = self.sample_points
             sample_points = sample_points.expand(
-                batch_size, *[-1 for _ in range(self.ndims_out)], -1, -1
+                batch_size, *self.output_shape, -1, -1
             )  # B x *self.output_shape x degree
         else:
             sample_points = self.sample_points_predictor(activations)
 
         sample_points = torch.clamp(sample_points, 0, 1)
-
         activations = torch.clamp(activations, 0, 1)
 
         # Make activations continuous and sample from them at variable points
@@ -166,19 +178,45 @@ class SparseAbacusLayer(nn.Module):
 
         elif self.ndims_in in (2, 3):  # 2D (HxW) or 3D (CxHxW) image input cases
             # We collapse the degree dim into the last spatial dim
+
             sample_points = sample_points.view(
                 batch_size,
                 *self.output_shape[:-1],
                 (self.output_shape[-1] * self.degree),
-                self.coordinate_dim,
+                self.ndims_in,
             )
 
             activations = activations.unsqueeze(1)
 
-            for _ in range(self.coordinate_dim - self.ndims_in):
-                activations = activations.unsqueeze(1)
-            for _ in range(self.coordinate_dim - self.ndims_out):
-                sample_points = sample_points.unsqueeze(1)
+            if self.ndims_in > self.ndims_out:
+                for _ in range(self.ndims_in - self.ndims_in):
+                    sample_points = torch.cat(
+                        [
+                            torch.full(
+                                (*sample_points.shape[:-1], 1),
+                                0.5,
+                                device=activations.device,
+                            ),
+                            sample_points,
+                        ],
+                        dim=-1,
+                    )
+                    sample_points = sample_points.unsqueeze(1)
+
+            # elif self.ndims_in < self.ndims_out:
+            # for _ in range(self.coordinate_dim - self.ndims_out):
+            #     sample_points = sample_points.unsqueeze(1)
+            #     sample_points = torch.cat(
+            #         [
+            #             torch.full(
+            #                 (*sample_points.shape[:-1], 1),
+            #                 0.5,
+            #                 device=activations.device,
+            #             ),
+            #             sample_points,
+            #         ],
+            #         dim=-1,
+            #     )
 
             sample_points = sample_points * 2 - 1  # Convert from [0, 1] to [-1, 1]
 
