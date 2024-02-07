@@ -4,7 +4,7 @@ from ..src.sparse_abacus import SparseAbacusLayer
 import itertools
 
 
-shapes = [(3, 4, 4), (4, 4), (4,)]
+shapes = [(5, 6, 7), (6, 7), (6,)]
 for input_shape, output_shape in itertools.product(shapes, shapes):
     print(input_shape, output_shape)
     layer = SparseAbacusLayer(

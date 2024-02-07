@@ -58,7 +58,6 @@ class SparseAbacusLayer(nn.Module):
         self.lookbehind = lookbehind
 
         if self.sample_points_predictor is None:
-
             # linspaces = [torch.linspace(0, 1, n) for n in self.output_shape]
             # sample_points = torch.cartesian_prod(*linspaces)
 
@@ -94,7 +93,6 @@ class SparseAbacusLayer(nn.Module):
 
         # Make activations continuous and sample from them at variable points
 
-
         activations = activations.view(
             batch_size, *self.output_shape, self.degree
         )  # B x N_out x degree
@@ -102,7 +100,7 @@ class SparseAbacusLayer(nn.Module):
         activations = self.aggregator(activations)  # B x N_out
 
         return activations
-    
+
     def clamp_params(self):
         if self.sample_points_predictor is None:
             self.sample_points.data.clamp_(0, 1)

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from typing import Tuple
 
+
 class FuzzyNAND(nn.Module):
     def __init__(self):
         super().__init__()
@@ -19,14 +20,15 @@ class FuzzyNAND(nn.Module):
         activations = 1 - activations
         activations = torch.prod(activations, dim=-1)
         return activations
-    
+
     def clamp_params(self):
         pass
+
 
 class FuzzyNOR(nn.Module):
     def __init__(self, dim=-1):
         super().__init__()
-        self.dim=dim
+        self.dim = dim
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
@@ -41,15 +43,17 @@ class FuzzyNOR(nn.Module):
         activations = 1 - torch.sum(activations, dim=self.dim)
         activations = activations.clamp(0, 1)
         return activations
-    
+
     def clamp_params(self):
         pass
+
 
 class FuzzyNANDNOR(nn.Module):
     """
     A weighted linear combination of fuzzy NAND and fuzzy NOR.
     """
-    def __init__(self, input_shape:Tuple[int], dim=-1):
+
+    def __init__(self, input_shape: Tuple[int], dim=-1):
         super().__init__()
 
         self.nand = FuzzyNAND(dim=dim)
@@ -59,7 +63,6 @@ class FuzzyNANDNOR(nn.Module):
         self.weights = nn.Parameter(self.weights)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
-        
         nand = self.nand(activations)
         nor = self.nor(activations)
 
@@ -70,10 +73,10 @@ class FuzzyNANDNOR(nn.Module):
 
 
 class LinearCombination(nn.Module):
-    def __init__(self, input_shape: Tuple[int], dim:int=-1):
+    def __init__(self, input_shape: Tuple[int], dim: int = -1):
         super().__init__()
         self.dim = dim
-        
+
         self.weights = torch.randn(input_shape) * 0.01
         self.weights = nn.Parameter(self.weights)
 
@@ -92,7 +95,6 @@ class LinearCombination(nn.Module):
         activations = torch.relu(activations)
 
         return activations
-    
+
     def clamp_params(self):
         pass
-

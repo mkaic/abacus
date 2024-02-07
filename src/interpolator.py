@@ -53,28 +53,59 @@ def interp_1d(x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor) -> torch.Ten
 
 
 def interp_nd(values: torch.Tensor, sample_points: torch.Tensor) -> torch.Tensor:
-    """Assumes a regular grid of original x values. Assumes sample points has B x N shape"""
-    stepsizes = torch.tensor([[1 / (dim - 1) for dim in values.shape]], device=values.device)
+    """Assumes a regular grid of original x values. Assumes sample points has B x -1 x Ndims shape"""
+
+    assert len(sample_points.shape) == 3, "Sample points must be B x -1 x Ndims"
+
+    batchless_input_shape = values.shape[1:]
+    n_dims = len(batchless_input_shape)
+
+    assert sample_points.shape[-1] == n_dims, "Sample point coordinates must have Ndims values"
+
+    stepsizes = torch.tensor(
+        [1 / (dim - 1) for dim in values.shape[1:]], device=values.device
+    )
+    stepsizes = stepsizes.view(1, 1, -1)
+
+    print(f"{list(sample_points.shape)=}", f"{list(stepsizes.shape)=}")
+
     raw_indices = sample_points / stepsizes
     left_indices = raw_indices.floor()
+
+    print(f"{list(left_indices.shape)=}")
+
     offsets = raw_indices - left_indices
     left_indices = left_indices.long()
     right_indices = left_indices + 1
 
-    discrete_points_to_sample = torch.stack([torch.cartesian_prod(l, r) for l, r in zip(left_indices, right_indices)], dim=-1)
-        
+    input_shape_tensor = torch.tensor(batchless_input_shape, device=values.device).unsqueeze(0)
+    right_indices = torch.where(
+        right_indices >= input_shape_tensor, left_indices, right_indices
+    )
 
-class Interpolator(nn.Module):
+
+
+    discrete_points_to_sample = []
+    
+    for dim in batchless_input_shape:
+    torch.stack(
+        [torch.cartesian_prod(l, r) for l, r in zip(left_indices, right_indices)],
+        dim=-1,
+    )
+
+
+class LinearInterpolator(nn.Module):
     def __init__(self, input_shape: Tuple[int], output_shape: Tuple[int]):
         super().__init__()
         self.input_shape = input_shape
         self.output_shape = output_shape
 
-    def forward(self, x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor
+    ) -> torch.Tensor:
         """
         :param x: The original coordinates.
         :param y: The original values.
         :param xnew: The xnew points to which y shall be interpolated.
         :return: The interpolated values ynew at xnew.
         """
-        
