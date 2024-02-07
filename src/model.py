@@ -21,7 +21,6 @@ class SparseAbacusModel(nn.Module):
         data_shapes: List[Tuple[int]],
         data_dependent: bool = False,
         degree: int = 2,
-        aggregator: Callable[[torch.Tensor], torch.Tensor] = fuzzy_nand,
         lookbehind: int = 1,
     ):
         super().__init__()
@@ -34,7 +33,6 @@ class SparseAbacusModel(nn.Module):
                     input_shape=data_shapes[i],
                     output_shape=data_shapes[i + 1],
                     degree=degree,
-                    aggregator=aggregator,
                     sample_points_predictor=None,
                     lookbehind=lookbehind,
                 )
@@ -46,7 +44,6 @@ class SparseAbacusModel(nn.Module):
                     input_shape=data_shapes[i],
                     output_shape=data_shapes[i + 1],
                     degree=degree,
-                    aggregator=aggregator,
                     sample_points_predictor=sample_points_predictor,
                     lookbehind=lookbehind,
                 )
@@ -63,5 +60,5 @@ class SparseAbacusModel(nn.Module):
         return x
 
     def clamp_params(self):
-        for p in self.parameters():
-            p.data.clamp_(0, 1)
+        for layer in self.layers:
+            layer.clamp_params()
