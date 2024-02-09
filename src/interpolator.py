@@ -52,15 +52,26 @@ def interp_1d(x: torch.Tensor, y: torch.Tensor, xnew: torch.Tensor) -> torch.Ten
     return ynew
 
 
-def interp_nd(values: torch.Tensor, sample_points: torch.Tensor) -> torch.Tensor:
-    """Assumes a regular grid of original x values. Assumes sample points has B x -1 x Ndims shape"""
+def unrolling_cartesian_product(cube):
+    return torch.cartesian_prod(*cube)
 
-    assert len(sample_points.shape) == 3, "Sample points must be B x -1 x Ndims"
+
+double_batched_unrolling_cartesian_product = torch.vmap(
+    torch.vmap(unrolling_cartesian_product)
+)
+
+
+def interp_nd(values: torch.Tensor, sample_points: torch.Tensor) -> torch.Tensor:
+    """Assumes a regular grid of original x values. Assumes sample points has B x D x Ndims shape"""
+
+    assert len(sample_points.shape) == 3, "Sample points must be B x D x Ndims"
 
     batchless_input_shape = values.shape[1:]
     n_dims = len(batchless_input_shape)
 
-    assert sample_points.shape[-1] == n_dims, "Sample point coordinates must have Ndims values"
+    assert (
+        sample_points.shape[-1] == n_dims
+    ), "Sample point coordinates must have Ndims values"
 
     stepsizes = torch.tensor(
         [1 / (dim - 1) for dim in values.shape[1:]], device=values.device
@@ -78,20 +89,32 @@ def interp_nd(values: torch.Tensor, sample_points: torch.Tensor) -> torch.Tensor
     left_indices = left_indices.long()
     right_indices = left_indices + 1
 
-    input_shape_tensor = torch.tensor(batchless_input_shape, device=values.device).unsqueeze(0)
+    input_shape_tensor = torch.tensor(
+        batchless_input_shape, device=values.device
+    ).unsqueeze(0)
     right_indices = torch.where(
         right_indices >= input_shape_tensor, left_indices, right_indices
     )
 
+    batched_discrete_indices = torch.stack(
+        [left_indices, right_indices], dim=-1
+    )  # B x D x Ndims x 2
 
+    batched_n_cube_corner_coords = double_batched_unrolling_cartesian_product(
+        batched_discrete_indices
+    ) # B x D x 2^Ndims x Ndims
 
-    discrete_points_to_sample = []
-    
-    for dim in batchless_input_shape:
-    torch.stack(
-        [torch.cartesian_prod(l, r) for l, r in zip(left_indices, right_indices)],
-        dim=-1,
-    )
+    print(f"{batched_n_cube_corner_coords.shape=}")
+
+    coords_shape = batched_n_cube_corner_coords.shape
+    batched_n_cube_corner_coords = batched_n_cube_corner_coords.view(-1, n_dims)
+
+    values = sample_points[batched_n_cube_corner_coords]
+    print(f"{values.shape=}")
+
+    values = values.view(coords_shape)
+
+    print(f"{values.shape=}")
 
 
 class LinearInterpolator(nn.Module):
