@@ -16,7 +16,7 @@ double_batched_unrolling_cartesian_product = torch.vmap(
 )
 
 
-def interp_nd(
+def n_linear_interp(
     original_values: torch.Tensor, sample_points: torch.Tensor
 ) -> torch.Tensor:
     """Assumes a regular grid of original x values. Assumes sample points has B x output_numel x Ndims shape and are in the range [0,1]"""
@@ -132,13 +132,14 @@ class LinearInterpolator(nn.Module):
         batch_size = y.shape[0]
 
         xnew = xnew.reshape(batch_size, self.n_output_el, len(self.input_shape))
-        ynew = interp_nd(y, xnew)
+        ynew = n_linear_interp(y, xnew)
         ynew = ynew.view(batch_size, *self.output_shape)
 
         return ynew
 
 
 class SciPyLinearInterpolator(LinearInterpolator):
+    """Exclusively for testing purposes, to sanity check my batched tensor implementation"""
 
     def forward(self, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
         """
@@ -167,5 +168,31 @@ class SciPyLinearInterpolator(LinearInterpolator):
         )
         ynew = ynew.view(batch_size, *self.output_shape)
         ynew = ynew.float()
+
+        return ynew
+    
+def n_fourier_interp(
+        original_values: torch.Tensor, sample_points: torch.Tensor
+) -> torch.Tensor:
+    pass
+
+class FourierInterpolator(nn.Module):
+    def __init__(self, input_shape: Tuple[int], output_shape: Tuple[int]):
+        super().__init__()
+        self.input_shape = input_shape
+        self.output_shape = output_shape
+        self.n_output_el = np.prod(output_shape)
+
+    def forward(self, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
+        """
+        :param y: The original values.
+        :param xnew: The xnew points to which y shall be interpolated.
+        :return: The interpolated values ynew at xnew.
+        """
+        batch_size = y.shape[0]
+
+        xnew = xnew.reshape(batch_size, self.n_output_el, len(self.input_shape))
+        ynew = n_fourier_interp(y, xnew)
+        ynew = ynew.view(batch_size, *self.output_shape)
 
         return ynew
