@@ -1,3 +1,7 @@
+
+# Requirements
+I develop inside of the January 2024 edition of the [Nvidia PyTorch Docker image](https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/rel-24-01.html#rel-24-01).
+
 # Experiments
 * Image inductive bias seems not to do much tbh.
 * Baseline acc,  
