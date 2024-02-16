@@ -174,7 +174,23 @@ class SciPyLinearInterpolator(LinearInterpolator):
 def n_fourier_interp(
         original_values: torch.Tensor, sample_points: torch.Tensor
 ) -> torch.Tensor:
-    pass
+    
+    
+    device = original_values.device
+
+    fourier_coeffs = torch.fft.fftn(original_values, dim=tuple(range(1, len(original_values.shape))))
+
+    fourier_magnitudes = torch.abs(fourier_coeffs)
+    fourier_phases = torch.angle(fourier_coeffs)
+
+    # implementation based off of https://brianmcfee.net/dstbook-site/content/ch07-inverse-dft/Synthesis.html#idft-as-synthesis
+
+    for i, s in enumerate(original_values.shape[1:]):
+
+        m = torch.arange(s-1, device=device).float()
+
+        # map from [0,1] to the integer space that the FFT uses
+        x = sample_points[..., i] * s
 
 class FourierInterpolator(nn.Module):
     def __init__(self, input_shape: Tuple[int], output_shape: Tuple[int]):
