@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from typing import Tuple
 
 from .aggregators import FuzzyNAND
-from .interpolator import Interpolator
+from .interpolators import Interpolator
 
 
 EPSILON = 1e-8

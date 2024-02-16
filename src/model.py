@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch
-from typing import List, Callable, Tuple
+from typing import List, Tuple
 
-from .sparse_abacus import SparseAbacusLayer, fuzzy_nand
+from .sparse_abacus import SparseAbacusLayer
 
 
 class SparseAbacusModel(nn.Module):
