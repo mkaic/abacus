@@ -91,7 +91,9 @@ def n_linear_interp(
         ncube_corner_coords.T
     )  # list with len=(B*output_num_points*2^Ndims) of tensors with shape (Ndims)
 
-    corner_values = original_values[ncube_corner_coords]  # (B*output_num_points*2^Ndims) x 1
+    corner_values = original_values[
+        ncube_corner_coords
+    ]  # (B*output_num_points*2^Ndims) x 1
 
     corner_values = corner_values.view(
         batch_size, output_num_points, 2**n_dims
@@ -170,39 +172,38 @@ class SciPyLinearInterpolator(LinearInterpolator):
         ynew = ynew.float()
 
         return ynew
-    
+
+
 def n_fourier_interp(
-        original_values: torch.Tensor, sample_points: torch.Tensor
+    original_values: torch.Tensor, sample_points: torch.Tensor
 ) -> torch.Tensor:
-    
-    
+
     device = original_values.device
     ndims = len(original_values.shape[1:])
     batch_size = original_values.shape[0]
 
-    fourier_coeffs = torch.fft.fftn(original_values, dim=tuple(range(1, len(original_values.shape))))
-
-    fourier_magnitudes = torch.abs(fourier_coeffs)
-    fourier_phases = torch.angle(fourier_coeffs)
+    fourier_coeffs = torch.fft.fftn(
+        original_values, dim=tuple(range(1, len(original_values.shape)))
+    )
 
     # implementation based off of https://brianmcfee.net/dstbook-site/content/ch07-inverse-dft/Synthesis.html#idft-as-synthesis
 
-    output_values = torch.zeros_like(fourier_coeffs)
     for dim, N in enumerate(original_values.shape[1:]):
+
+        fourier_magnitudes = torch.abs(fourier_coeffs)
+        fourier_phases = torch.angle(fourier_coeffs)
 
         # select only the coordinates for the dimension we're currently
         # doing IFFT for
         # map from [0,1] to the integer space that the FFT uses
-        x = sample_points[..., dim:dim+1] * N # B x output_num_points x 1
+        x = sample_points[..., dim : dim + 1] * N  # B x output_num_points x 1
 
         m = torch.arange(N, device=device)
-        m = m.expand(*fourier_coeffs.shape, N) # *original_values.shape x N
+        m = m.expand(*fourier_coeffs.shape, N)  # *original_values.shape x N
 
-        freqs = 2 * torch.pi * (m.float()/N) * x # B x output_num_points x N
-        
+        freqs = 2 * torch.pi * (m.float() / N) * x  # B x output_num_points x N
 
-        sinusoids = amps * torch.cos(freqs + phases) # B x output_num_points x N
-
+        # sinusoids = amps * torch.cos(freqs + phases) # B x output_num_points x N
 
 
 class FourierInterpolator(nn.Module):

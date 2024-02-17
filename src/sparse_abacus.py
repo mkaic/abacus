@@ -2,12 +2,11 @@
 # encoding: utf-8
 import torch
 import torch.nn as nn
-from typing import Callable
 from collections.abc import Iterable
 from typing import Tuple
 
-from .aggregators import FuzzyNAND
-from .interpolators import Interpolator
+from .aggregators import FuzzyNAND, LinearCombination
+from .interpolators import LinearInterpolator
 
 
 EPSILON = 1e-8
@@ -37,6 +36,8 @@ class SparseAbacusLayer(nn.Module):
         self,
         input_shape: Tuple[int],
         output_shape: Tuple[int],
+        interpolator: nn.Module = LinearInterpolator,
+        aggregator: nn.Module = LinearCombination,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
         lookbehind: int = 1,
@@ -50,9 +51,8 @@ class SparseAbacusLayer(nn.Module):
             output_shape if isinstance(output_shape, Iterable) else (output_shape,)
         )
 
-        self.interpolator = Interpolator(input_shape, output_shape)
-
-        self.aggregator = FuzzyNAND()
+        self.interpolator = interpolator(input_shape, output_shape)
+        self.aggregator = aggregator([*output_shape, degree], dim=-1)
         self.degree = degree
         self.sample_points_predictor = sample_points_predictor
         self.lookbehind = lookbehind
@@ -89,9 +89,9 @@ class SparseAbacusLayer(nn.Module):
             sample_points = self.sample_points_predictor(activations)
 
         sample_points = torch.clamp(sample_points, 0, 1)
-        activations = torch.clamp(activations, 0, 1)
 
         # Make activations continuous and sample from them at variable points
+        activations = self.interpolator(activations, sample_points)
 
         activations = activations.view(
             batch_size, *self.output_shape, self.degree

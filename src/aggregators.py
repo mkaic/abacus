@@ -4,8 +4,9 @@ from typing import Tuple
 
 
 class FuzzyNAND(nn.Module):
-    def __init__(self):
+    def __init__(self, input_shape: Tuple[int]=None, dim=-1):
         super().__init__()
+        self.dim=dim
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
@@ -18,7 +19,7 @@ class FuzzyNAND(nn.Module):
 
         activations = activations.clamp(0, 1)
         activations = 1 - activations
-        activations = torch.prod(activations, dim=-1)
+        activations = torch.prod(activations, dim=self.dim)
         return activations
 
     def clamp_params(self):
@@ -26,7 +27,7 @@ class FuzzyNAND(nn.Module):
 
 
 class FuzzyNOR(nn.Module):
-    def __init__(self, dim=-1):
+    def __init__(self, input_shape: Tuple[int] = None, dim=-1):
         super().__init__()
         self.dim = dim
 
@@ -59,7 +60,7 @@ class FuzzyNANDNOR(nn.Module):
         self.nand = FuzzyNAND(dim=dim)
         self.nor = FuzzyNOR(dim=dim)
 
-        self.weights = torch.rand(input_shape)
+        self.weights = torch.rand(*input_shape[:-1])
         self.weights = nn.Parameter(self.weights)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:

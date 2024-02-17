@@ -1,5 +1,9 @@
 import torch
-from ..src.interpolators import LinearInterpolator, SciPyLinearInterpolator, FourierInterpolator
+from ..src.interpolators import (
+    LinearInterpolator,
+    SciPyLinearInterpolator,
+    FourierInterpolator,
+)
 import matplotlib.pyplot as plt
 import itertools
 
@@ -37,8 +41,12 @@ scipy_interpolator = SciPyLinearInterpolator(input_shape, output_shape)
 fourier_interpolator = FourierInterpolator(input_shape, output_shape)
 
 input_values = torch.rand(BATCH_SIZE, *input_shape)
-output_points = torch.meshgrid(torch.linspace(0, 1, 64), torch.linspace(0, 1, 64), indexing="ij")
-output_points = torch.stack(output_points, dim=-1).unsqueeze(0).expand(BATCH_SIZE, -1, -1, -1)
+output_points = torch.meshgrid(
+    torch.linspace(0, 1, 64), torch.linspace(0, 1, 64), indexing="ij"
+)
+output_points = (
+    torch.stack(output_points, dim=-1).unsqueeze(0).expand(BATCH_SIZE, -1, -1, -1)
+)
 
 linear_output = linear_interpolator(input_values, output_points)
 linear_reference = scipy_interpolator(input_values, output_points)

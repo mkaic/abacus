@@ -3,6 +3,8 @@ import torch
 from typing import List, Tuple
 
 from .sparse_abacus import SparseAbacusLayer
+from .interpolators import LinearInterpolator, FourierInterpolator
+from .aggregators import FuzzyNAND, FuzzyNOR, FuzzyNANDNOR, LinearCombination
 
 
 class SparseAbacusModel(nn.Module):
@@ -21,6 +23,8 @@ class SparseAbacusModel(nn.Module):
         data_shapes: List[Tuple[int]],
         data_dependent: bool = False,
         degree: int = 2,
+        interpolator_class:nn.Module= LinearInterpolator,
+        aggregator_class:nn.Module= LinearCombination,
         lookbehind: int = 1,
     ):
         super().__init__()
@@ -32,6 +36,8 @@ class SparseAbacusModel(nn.Module):
                 sample_points_predictor = SparseAbacusLayer(
                     input_shape=data_shapes[i],
                     output_shape=data_shapes[i + 1],
+                    interpolator=interpolator_class,
+                    aggregator=aggregator_class,
                     degree=degree,
                     sample_points_predictor=None,
                     lookbehind=lookbehind,
@@ -43,6 +49,8 @@ class SparseAbacusModel(nn.Module):
                 SparseAbacusLayer(
                     input_shape=data_shapes[i],
                     output_shape=data_shapes[i + 1],
+                    interpolator=interpolator_class,
+                    aggregator=aggregator_class,
                     degree=degree,
                     sample_points_predictor=sample_points_predictor,
                     lookbehind=lookbehind,
