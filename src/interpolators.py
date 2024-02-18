@@ -181,17 +181,55 @@ def n_fourier_interp(
     device = original_values.device
     ndims = len(original_values.shape[1:])
     batch_size = original_values.shape[0]
+    
+    shape_tensor = torch.tensor(original_values.shape[1:], device=device) # Ndims
+    num_output_points = sample_points.shape[1]
+    sample_points = sample_points * shape_tensor # B x output_num_points x Ndims
+
+    m = torch.meshgrid(*[torch.arange(dim, device=device) for dim in shape_tensor])
+    m = torch.stack(m, dim=-1)  # *original_values.shape[1:] x Ndims
+    m = m.unsqueeze(0) # 1 x *original_values.shape[1:] x Ndims
+    m = m.unsqueeze(-2) # 1 x *original_values.shape[1:] x 1 x Ndims
+
+    # maps from integer coords to [0,1] coords to radians
+    freqs = m/shape_tensor * 2 * torch.pi # 1 x *original_values.shape[1:] x 1 x Ndims
+
+    # After broadcasting, there will be a copy of the sample points for every 
+    # point in the fourier-transformed version of the original values
+    sample_points = sample_points.view(batch_size, *[1 for _ in shape_tensor], num_output_points, ndims) # B x 1...1 x output_num_points x Ndims
+    sinusoid_coords = freqs * sample_points # *original_values.shape x output_num_points x Ndims
 
     fourier_coeffs = torch.fft.fftn(
         original_values, dim=tuple(range(1, len(original_values.shape)))
     )
+    fourier_magnitudes = torch.abs(fourier_coeffs) # *original_values.shape
+    fourier_phases = torch.angle(fourier_coeffs) # *original_values.shape
+
+    fourier_magnitudes = fourier_magnitudes.view(*original_values.shape, 1, 1) # *original_values.shape x 1 x 1
+    fourier_phases = fourier_phases.view(*original_values.shape, 1, 1) # *original_values.shape x 1 x 1
+
+    sinusoid_coords = sinusoid_coords + fourier_phases # *original_values.shape x output_num_points x Ndims
+    sinusoids = torch.cos(sinusoid_coords) # *original_values.shape x output_num_points x Ndims
+    sinusoids = torch.prod(sinusoids, dim=-1) # *original_values.shape x output_num_points
+    sinusoids = sinusoids * fourier_magnitudes # *original_values.shape x output_num_points
+
+    # Average over all sinusoids
+    dims_to_collapse = tuple([i for i in range(1, len(original_values.shape) - 1)])
+    interpolated = torch.mean(sinusoids, dim=dims_to_collapse) # B x output_num_points
+
+    # Un-complexify them
+    interpolated = interpolated.real
+
+    return interpolated
+    
+    
+
 
     # implementation based off of https://brianmcfee.net/dstbook-site/content/ch07-inverse-dft/Synthesis.html#idft-as-synthesis
 
     for dim, N in enumerate(original_values.shape[1:]):
 
-        fourier_magnitudes = torch.abs(fourier_coeffs)
-        fourier_phases = torch.angle(fourier_coeffs)
+        
 
         # select only the coordinates for the dimension we're currently
         # doing IFFT for
