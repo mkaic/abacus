@@ -4,9 +4,9 @@ from typing import Tuple
 
 
 class FuzzyNAND(nn.Module):
-    def __init__(self, input_shape: Tuple[int]=None, dim=-1):
+    def __init__(self, input_shape: Tuple[int] = None, dim=-1):
         super().__init__()
-        self.dim=dim
+        self.dim = dim
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """

@@ -23,8 +23,8 @@ class SparseAbacusModel(nn.Module):
         data_shapes: List[Tuple[int]],
         data_dependent: bool = False,
         degree: int = 2,
-        interpolator_class:nn.Module= LinearInterpolator,
-        aggregator_class:nn.Module= LinearCombination,
+        interpolator_class: nn.Module = LinearInterpolator,
+        aggregator_class: nn.Module = LinearCombination,
         lookbehind: int = 1,
     ):
         super().__init__()
