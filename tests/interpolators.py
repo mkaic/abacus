@@ -7,10 +7,10 @@ from ..src.interpolators import (
 import matplotlib.pyplot as plt
 import itertools
 
-BATCH_SIZE = 8
+BATCH_SIZE = 3
 
 input_shapes = [(4,), (4, 4), (4, 4, 4), (4, 4, 4, 4)]
-output_shapes = [(4,), (16,), (16, 16), (16, 16, 16), (16, 16, 16, 16)]
+output_shapes = [(8,), (8, 8), (8, 8, 8), (8, 8, 8, 8)]
 
 
 for input_shape, output_shape in itertools.product(input_shapes, output_shapes):
@@ -46,7 +46,9 @@ for resolution in (4, 64):
     input_values = torch.rand(BATCH_SIZE, *input_shape)
 
     output_points = torch.meshgrid(
-        torch.linspace(0, 1, resolution), torch.linspace(0, 1, resolution), indexing="ij"
+        torch.linspace(0, 1, resolution),
+        torch.linspace(0, 1, resolution),
+        indexing="ij",
     )
     output_points = (
         torch.stack(output_points, dim=-1).unsqueeze(0).expand(BATCH_SIZE, -1, -1, -1)
@@ -62,5 +64,12 @@ for resolution in (4, 64):
     axes[1, 0].imshow(linear_reference[0])
     axes[1, 1].imshow(fourier_output[0])
 
-
     plt.savefig(f"abacus/tests/interpn_test_{resolution}.png")
+
+    fft = torch.fft.rfftn(linear_output[0])
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    axes[0,0].imshow(linear_output[0])
+    axes[0,1].imshow(torch.log(torch.abs(fft)))
+    axes[1,0].imshow(torch.fft.irfftn(fft).real)
+    axes[1,1].imshow(torch.log(torch.abs(torch.fft.fftshift(fft))))
+    plt.savefig(f"abacus/tests/fft.png")
