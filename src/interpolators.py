@@ -191,14 +191,13 @@ def n_fourier_interp(
     # the last dimension of the fft is half the size due to
     # the fact that the input is real-valued. something something
     # hermitian symmetry. i don't really get it but whatever.
-    rfft_shape = torch.tensor(original_values.shape[1:], device=device)  # Ndims
-    rfft_shape[-1] = rfft_shape[-1] // 2 + 1
+    fft_shape = torch.tensor(original_values.shape[1:], device=device)  # Ndims
     num_output_points = sample_points.shape[1]
 
-    sample_points = sample_points * rfft_shape
+    sample_points = sample_points * fft_shape
 
     m = torch.meshgrid(
-        *[torch.arange(dim, device=device, dtype=torch.float) for dim in rfft_shape],
+        *[torch.arange(dim, device=device, dtype=torch.float) for dim in fft_shape],
         indexing="ij"
     )
     # *rfft_shape[1:] x Ndims
@@ -208,13 +207,13 @@ def n_fourier_interp(
 
     # maps from integer coords to [0,1] coords to radians
     # 1 x *original_values.shape[1:] x 1 x Ndims
-    freqs = m / rfft_shape * 2 * torch.pi
+    freqs = m / fft_shape * 2 * torch.pi
 
     # After broadcasting, there will be a copy of the sample points for every
     # point in the fourier-transformed version of the original values
     # B x 1...1 x output_num_points x Ndims
     sample_points = sample_points.view(
-        batch_size, *[1 for _ in rfft_shape], num_output_points, ndims
+        batch_size, *[1 for _ in fft_shape], num_output_points, ndims
     )
 
     # *rfft_shape x output_num_points x Ndims
@@ -224,12 +223,9 @@ def n_fourier_interp(
     sinusoid_coords = sinusoid_coords.sum(dim=-1)
 
     # *rfft_shape
-    fourier_coeffs: torch.Tensor = torch.fft.rfftn(
+    fourier_coeffs: torch.Tensor = torch.fft.fftn(
         original_values, dim=tuple(range(1, ndims + 1))
     )
-
-    # *rfft_shape x 1
-    fourier_coeffs = fourier_coeffs.unsqueeze(-1)
 
     complex_j = torch.complex(
         torch.tensor(0, device=device, dtype=torch.float),
@@ -240,10 +236,13 @@ def n_fourier_interp(
         complex_j * torch.sin(sinusoid_coords)
     )
 
+    # *rfft_shape x 1
+    fourier_coeffs = fourier_coeffs.unsqueeze(-1)
+    
     sinusoids = fourier_coeffs * sinusoids
 
     # Average over all sinusoids
-    dims_to_collapse = tuple([i + 1 for i in range(len(rfft_shape))])
+    dims_to_collapse = tuple([i + 1 for i in range(len(fft_shape))])
     interpolated = torch.mean(sinusoids, dim=dims_to_collapse)  # B x output_num_points
 
     # Un-complexify them
