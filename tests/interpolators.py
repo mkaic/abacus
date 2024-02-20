@@ -68,8 +68,8 @@ for resolution in (4, 64):
 
     fft = torch.fft.rfftn(linear_output[0])
     fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-    axes[0,0].imshow(linear_output[0])
-    axes[0,1].imshow(torch.log(torch.abs(fft)))
-    axes[1,0].imshow(torch.fft.irfftn(fft).real)
-    axes[1,1].imshow(torch.log(torch.abs(torch.fft.fftshift(fft))))
+    axes[0, 0].imshow(linear_output[0])
+    axes[0, 1].imshow(torch.log(torch.abs(fft)))
+    axes[1, 0].imshow(torch.fft.irfftn(fft).real)
+    axes[1, 1].imshow(torch.log(torch.abs(torch.fft.fftshift(fft))))
     plt.savefig(f"abacus/tests/fft.png")

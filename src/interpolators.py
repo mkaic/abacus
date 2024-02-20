@@ -198,7 +198,8 @@ def n_fourier_interp(
     sample_points = sample_points * rfft_shape
 
     m = torch.meshgrid(
-        *[torch.arange(dim, device=device, dtype=torch.float) for dim in rfft_shape], indexing="ij"
+        *[torch.arange(dim, device=device, dtype=torch.float) for dim in rfft_shape],
+        indexing="ij"
     )
     # *rfft_shape[1:] x Ndims
     m = torch.stack(m, dim=-1)
@@ -219,25 +220,27 @@ def n_fourier_interp(
     # *rfft_shape x output_num_points x Ndims
     sinusoid_coords = freqs * sample_points
 
+    # *rfft_shape x output_num_points
+    sinusoid_coords = sinusoid_coords.sum(dim=-1)
+
     # *rfft_shape
-    fourier_coeffs = torch.fft.rfftn(
-        original_values, dim=tuple(range(1, ndims+1))
+    fourier_coeffs: torch.Tensor = torch.fft.rfftn(
+        original_values, dim=tuple(range(1, ndims + 1))
     )
 
-    # *rfft_shape x 1 x 1
-    fourier_coeffs = fourier_coeffs.view(batch_size, *rfft_shape, 1, 1)
+    # *rfft_shape x 1
+    fourier_coeffs = fourier_coeffs.unsqueeze(-1)
 
-    fourier_magnitudes = torch.abs(fourier_coeffs)
-    fourier_phases = torch.angle(fourier_coeffs)
+    complex_j = torch.complex(
+        torch.tensor(0, device=device, dtype=torch.float),
+        torch.tensor(1, device=device, dtype=torch.float),
+    )
 
-    # *rfft_shape x output_num_points x Ndims
-    sinusoid_coords = sinusoid_coords + fourier_phases
+    sinusoids = torch.cos(sinusoid_coords) + (
+        complex_j * torch.sin(sinusoid_coords)
+    )
 
-    sinusoids = torch.cos(sinusoid_coords)
-    sinusoids = sinusoids * fourier_magnitudes
-
-    # *rfft_shape x output_num_points
-    sinusoids = torch.prod(sinusoids, dim=-1)
+    sinusoids = fourier_coeffs * sinusoids
 
     # Average over all sinusoids
     dims_to_collapse = tuple([i + 1 for i in range(len(rfft_shape))])
