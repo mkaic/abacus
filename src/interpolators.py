@@ -196,37 +196,40 @@ def n_fourier_interp(
 
     sample_points = sample_points * fft_shape
 
+    # list of (*fft_shape) with length Ndims
     m = torch.meshgrid(
         *[torch.arange(dim, device=device, dtype=torch.float) for dim in fft_shape],
         indexing="ij"
     )
-    # *rfft_shape[1:] x Ndims
+    # *fft_shape x Ndims
     m = torch.stack(m, dim=-1)
-    m = m.unsqueeze(0)
-    m = m.unsqueeze(-2)
+    # 1 x *fft_shape x 1 x Ndims
+    m = m.view(1, *fft_shape, 1, ndims)
 
     # maps from integer coords to [0,1] coords to radians
-    # 1 x *original_values.shape[1:] x 1 x Ndims
+    # 1 x *fft_shape x 1 x Ndims
     freqs = m / fft_shape * 2 * torch.pi
 
     # After broadcasting, there will be a copy of the sample points for every
-    # point in the fourier-transformed version of the original values
-    # B x 1...1 x output_num_points x Ndims
+    # point in the fourier-transformed version of the original values:
+    # B x *fft_shape x output_num_points x Ndims
     sample_points = sample_points.view(
         batch_size, *[1 for _ in fft_shape], num_output_points, ndims
     )
 
-    # *rfft_shape x output_num_points x Ndims
+    # B x *fft_shape x output_num_points x Ndims
     sinusoid_coords = freqs * sample_points
 
-    # *rfft_shape x output_num_points
+    # B x *fft_shape x output_num_points
     sinusoid_coords = sinusoid_coords.sum(dim=-1)
 
-    # *rfft_shape
+    # B x *fft_shape
+    dims_to_fourier = tuple(range(1, ndims + 1))
     fourier_coeffs: torch.Tensor = torch.fft.fftn(
-        original_values, dim=tuple(range(1, ndims + 1))
+        original_values, dim=dims_to_fourier
     )
 
+    # [1]
     complex_j = torch.complex(
         torch.tensor(0, device=device, dtype=torch.float),
         torch.tensor(1, device=device, dtype=torch.float),
@@ -236,14 +239,16 @@ def n_fourier_interp(
         complex_j * torch.sin(sinusoid_coords)
     )
 
-    # *rfft_shape x 1
+    # B x *fft_shape x 1
     fourier_coeffs = fourier_coeffs.unsqueeze(-1)
-    
+
+    # B x *fft_shape x output_num_points
     sinusoids = fourier_coeffs * sinusoids
 
     # Average over all sinusoids
     dims_to_collapse = tuple([i + 1 for i in range(len(fft_shape))])
-    interpolated = torch.mean(sinusoids, dim=dims_to_collapse)  # B x output_num_points
+    # B x output_num_points
+    interpolated = torch.mean(sinusoids, dim=dims_to_collapse)  
 
     # Un-complexify them
     interpolated = interpolated.real
