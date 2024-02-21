@@ -12,7 +12,7 @@ BATCH_SIZE = 3
 input_shapes = [(4,), (4, 4), (4, 4, 4), (4, 4, 4, 4)]
 output_shapes = [(8,), (8, 8), (8, 8, 8), (8, 8, 8, 8)]
 
-
+print("TESTING COMBINATIONS OF INPUT AND OUTPUT SHAPES\nAND VERIFYING LINEAR INTERP")
 for input_shape, output_shape in itertools.product(input_shapes, output_shapes):
     print(input_shape, output_shape)
 
@@ -32,8 +32,9 @@ for input_shape, output_shape in itertools.product(input_shapes, output_shapes):
     ), f"Interpolation failed. Error: {torch.abs(linear_output - linear_reference).max()}"
 
 
+print("VERIFYING FOURIER INTERP ON EVEN AND ODD SIZES")
 # Test that Fourier output is lossless at identical resolutions in all dimensions
-shapes = [(16,), (17,), (16, 16), (17, 17), (16, 16, 16), (17, 17, 17), (16, 16, 16, 16), (17, 17, 17, 17)]
+shapes = [(16,), (17,), (16, 16), (17, 17), (8, 8, 8), (9, 9, 9), (4, 4, 4, 4), (5, 5, 5, 5)]
 for shape in shapes:
     print(shape)
 
@@ -53,6 +54,7 @@ for shape in shapes:
         input_values, fourier_output, atol=1e-4
     ), f"Interpolation failed. Error: {torch.abs(input_values - fourier_output).max()}"
 
+print("VISUALIZING 2D-TO-2D INTERPS AS A SANITY CHECK")
 # Now we will visually inspect the 2D to 2D case
 input_shape = (4, 4)
 
@@ -94,3 +96,5 @@ for resolution in (4, 64):
     axes[1, 0].imshow(torch.fft.ifftn(fft).real)
     axes[1, 1].imshow(torch.log(torch.abs(torch.fft.fftshift(fft))))
     plt.savefig(f"abacus/tests/images/fft.png")
+
+print("DONE")
