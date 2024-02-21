@@ -193,12 +193,13 @@ def n_fourier_interp(
     ndims = len(original_values.shape[1:])
     batch_size = original_values.shape[0]
 
-    # the last dimension of the fft is half the size due to
-    # the fact that the input is real-valued. something something
-    # hermitian symmetry. i don't really get it but whatever.
     fft_shape = torch.tensor(original_values.shape[1:], device=device)  # Ndims
     n_sample_points = sample_points.shape[1]
 
+    # AHAHAHAAHAHAHAHAAHAHAHAAA
+    # I SPENT SO MANY HOURS TRYING TO FIGURE OUT WHY MY CODE WASN'T WORKING
+    # AND IT WAS BECAUSE I WAS MAPPING THE SAMPLE POINTS FROM [0,1] TO [0, N]
+    # INSTEAD OF [0,1] TO [0, N-1]. 
     sample_points = sample_points * (fft_shape - 1).clamp(min=0)
 
     # list of (*fft_shape) with length Ndims

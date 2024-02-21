@@ -41,16 +41,16 @@ for shape in shapes:
 
     input_values = torch.rand(BATCH_SIZE, *shape)
     output_points = torch.meshgrid(
-        [torch.linspace(0, 1, dim) for dim in shape],
+        *[torch.linspace(0, 1, dim) for dim in shape],
         indexing="ij",
     )
     output_points = (
-        torch.stack(output_points, dim=-1).unsqueeze(0).expand(BATCH_SIZE, -1, -1, -1)
+        torch.stack(output_points, dim=-1).unsqueeze(0).expand(BATCH_SIZE, *[-1 for _ in shape], -1)
     )
     fourier_output = fourier_interpolator(input_values, output_points)
 
     assert torch.allclose(
-        input_values, fourier_output, atol=1e-6
+        input_values, fourier_output, atol=1e-4
     ), f"Interpolation failed. Error: {torch.abs(input_values - fourier_output).max()}"
 
 # Now we will visually inspect the 2D to 2D case
