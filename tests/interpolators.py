@@ -32,10 +32,31 @@ for input_shape, output_shape in itertools.product(input_shapes, output_shapes):
     ), f"Interpolation failed. Error: {torch.abs(linear_output - linear_reference).max()}"
 
 
-# Now we will visually inspect the 2D to 2D case
-input_shape = (5, 5)
+# Test that Fourier output is lossless at identical resolutions in all dimensions
+shapes = [(16,), (17,), (16, 16), (17, 17), (16, 16, 16), (17, 17, 17), (16, 16, 16, 16), (17, 17, 17, 17)]
+for shape in shapes:
+    print(shape)
 
-for resolution in (5, 64):
+    fourier_interpolator = FourierInterpolator(shape, shape)
+
+    input_values = torch.rand(BATCH_SIZE, *shape)
+    output_points = torch.meshgrid(
+        [torch.linspace(0, 1, dim) for dim in shape],
+        indexing="ij",
+    )
+    output_points = (
+        torch.stack(output_points, dim=-1).unsqueeze(0).expand(BATCH_SIZE, -1, -1, -1)
+    )
+    fourier_output = fourier_interpolator(input_values, output_points)
+
+    assert torch.allclose(
+        input_values, fourier_output, atol=1e-6
+    ), f"Interpolation failed. Error: {torch.abs(input_values - fourier_output).max()}"
+
+# Now we will visually inspect the 2D to 2D case
+input_shape = (4, 4)
+
+for resolution in (4, 64):
 
     output_shape = (resolution, resolution)
 
@@ -64,12 +85,12 @@ for resolution in (5, 64):
     plt.colorbar(axes[1, 0].imshow(linear_reference[0]))
     plt.colorbar(axes[1, 1].imshow(fourier_output[0]))
 
-    plt.savefig(f"abacus/tests/interpn_test_{resolution}.png")
+    plt.savefig(f"abacus/tests/images/interpn_test_{resolution}.png")
 
-    fft = torch.fft.rfftn(linear_output[0])
+    fft = torch.fft.fftn(linear_output[0])
     fig, axes = plt.subplots(2, 2, figsize=(10, 10))
     axes[0, 0].imshow(linear_output[0])
     axes[0, 1].imshow(torch.log(torch.abs(fft)))
-    axes[1, 0].imshow(torch.fft.irfftn(fft).real)
+    axes[1, 0].imshow(torch.fft.ifftn(fft).real)
     axes[1, 1].imshow(torch.log(torch.abs(torch.fft.fftshift(fft))))
-    plt.savefig(f"abacus/tests/fft.png")
+    plt.savefig(f"abacus/tests/images/fft.png")
