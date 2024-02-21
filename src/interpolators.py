@@ -19,18 +19,18 @@ double_batched_unrolling_cartesian_product = torch.vmap(
 def n_linear_interp(
     original_values: torch.Tensor, sample_points: torch.Tensor
 ) -> torch.Tensor:
-    """Assumes a regular grid of original x values. Assumes sample points has B x output_num_points x Ndims shape and are in the range [0,1]"""
+    """Assumes a regular grid of original x values. Assumes sample points has B x n_sample_points x Ndims shape and are in the range [0,1]"""
 
     device = original_values.device
     assert (
         len(sample_points.shape) == 3
-    ), "Sample points must be B x output_num_points x Ndims"
+    ), "Sample points must be B x n_sample_points x Ndims"
 
     # what the dimension of the data is, ignoring the batch dim
     batch_size = original_values.shape[0]
     batchless_input_shape = original_values.shape[1:]
     n_dims = len(batchless_input_shape)
-    output_num_points = sample_points.shape[1]
+    n_sample_points = sample_points.shape[1]
 
     assert (
         sample_points.shape[-1] == n_dims
@@ -48,7 +48,7 @@ def n_linear_interp(
     raw_indices = sample_points / stepsizes
     left_indices = raw_indices.floor()
     offsets = raw_indices - left_indices
-    left_indices = left_indices.long()  # B x output_num_points x Ndims
+    left_indices = left_indices.long()  # B x n_sample_points x Ndims
 
     # Cap right-indices so that they don't try to index out of bounds
     # This means any attempts to interpolate out of bounds will just result
@@ -59,45 +59,45 @@ def n_linear_interp(
     )  # 1 x Ndims
     right_indices = torch.where(
         right_indices >= input_shape_tensor, left_indices, right_indices
-    )  # B x output_num_points x Ndims
+    )  # B x n_sample_points x Ndims
 
     discrete_indices = torch.stack(
         [left_indices, right_indices], dim=-1
-    )  # B x output_num_points x Ndims x 2
+    )  # B x n_sample_points x Ndims x 2
 
     ncube_corner_coords = double_batched_unrolling_cartesian_product(
         discrete_indices
-    )  # B x output_num_points x 2^Ndims x Ndims
+    )  # B x n_sample_points x 2^Ndims x Ndims
 
     ncube_corner_coords: torch.Tensor = ncube_corner_coords.view(
-        batch_size, output_num_points, 2**n_dims, n_dims
-    )  # B x output_num_points x 2^Ndims x Ndims
+        batch_size, n_sample_points, 2**n_dims, n_dims
+    )  # B x n_sample_points x 2^Ndims x Ndims
 
     # Add the batch dimension to the corner coordinates
     batch_coordinates = (
         torch.arange(batch_size, device=device)
         .view(-1, 1, 1, 1)
-        .expand(-1, output_num_points, 2**n_dims, -1)
-    )  # B x output_num_points x 2^Ndims x 1
+        .expand(-1, n_sample_points, 2**n_dims, -1)
+    )  # B x n_sample_points x 2^Ndims x 1
 
     ncube_corner_coords = torch.cat(
         [batch_coordinates, ncube_corner_coords], dim=-1
-    )  # B x output_num_points x 2^Ndims x (Ndims+1)
+    )  # B x n_sample_points x 2^Ndims x (Ndims+1)
 
     ncube_corner_coords = ncube_corner_coords.flatten(
         start_dim=0, end_dim=-2
-    )  # (B*output_num_points*2^Ndims) x (Ndims+1)
+    )  # (B*n_sample_points*2^Ndims) x (Ndims+1)
     ncube_corner_coords = list(
         ncube_corner_coords.T
-    )  # list with len=(B*output_num_points*2^Ndims) of tensors with shape (Ndims)
+    )  # list with len=(B*n_sample_points*2^Ndims) of tensors with shape (Ndims)
 
     corner_values = original_values[
         ncube_corner_coords
-    ]  # (B*output_num_points*2^Ndims) x 1
+    ]  # (B*n_sample_points*2^Ndims) x 1
 
     corner_values = corner_values.view(
-        batch_size, output_num_points, 2**n_dims
-    )  # B x output_num_points x 2^Ndims
+        batch_size, n_sample_points, 2**n_dims
+    )  # B x n_sample_points x 2^Ndims
 
     interpolated = corner_values
     for i in range(n_dims):
@@ -112,7 +112,7 @@ def n_linear_interp(
         b = interpolated[..., length // 2 :]
 
         slope = b - a
-        # offsets is of shape B x output_num_points x Ndims, after indexing and unsqueezing is B x output_num_points x 1.
+        # offsets is of shape B x n_sample_points x Ndims, after indexing and unsqueezing is B x n_sample_points x 1.
         interpolated = a + slope * offsets[..., i].unsqueeze(-1)
 
     return interpolated.squeeze(-1)
@@ -179,7 +179,7 @@ def n_fourier_interp(
 ) -> torch.Tensor:
     """
     original_values has some arbitrary shape (B x ...)
-    sample_points has shape (B x output_num_points x Ndims) and all values are in the range [0,1]
+    sample_points has shape (B x n_sample_points x Ndims) and all values are in the range [0,1]
 
     Synthesis portion's implementation is based off of https://brianmcfee.net/dstbook-site/content/ch07-inverse-dft/Synthesis.html#idft-as-synthesis
     """
@@ -191,41 +191,44 @@ def n_fourier_interp(
     # the last dimension of the fft is half the size due to
     # the fact that the input is real-valued. something something
     # hermitian symmetry. i don't really get it but whatever.
-    fft_shape = torch.tensor(original_values.shape[1:], device=device)  # Ndims
-    num_output_points = sample_points.shape[1]
+    rfft_shape = torch.tensor(original_values.shape[1:], device=device)  # Ndims
+    rfft_shape[-1] = rfft_shape[-1] // 2 + 1
+    n_sample_points = sample_points.shape[1]
 
-    sample_points = sample_points * fft_shape
+    sample_points = sample_points * rfft_shape
 
-    # list of (*fft_shape) with length Ndims
+    # list of (*rfft_shape) with length Ndims
     m = torch.meshgrid(
-        *[torch.arange(dim, device=device, dtype=torch.float) for dim in fft_shape],
+        *[torch.arange(dim, device=device, dtype=torch.float) for dim in rfft_shape],
         indexing="ij"
     )
-    # *fft_shape x Ndims
+    # *rfft_shape x Ndims
     m = torch.stack(m, dim=-1)
-    # 1 x *fft_shape x 1 x Ndims
-    m = m.view(1, *fft_shape, 1, ndims)
+    # 1 x *rfft_shape x 1 x Ndims
+    m = m.view(1, *rfft_shape, 1, ndims)
 
     # maps from integer coords to [0,1] coords to radians
-    # 1 x *fft_shape x 1 x Ndims
-    freqs = m / fft_shape * 2 * torch.pi
+    # 1 x *rfft_shape x 1 x Ndims
+    freqs = m / rfft_shape
 
     # After broadcasting, there will be a copy of the sample points for every
     # point in the fourier-transformed version of the original values:
-    # B x *fft_shape x output_num_points x Ndims
+    # B x *rfft_shape x n_sample_points x Ndims
     sample_points = sample_points.view(
-        batch_size, *[1 for _ in fft_shape], num_output_points, ndims
+        batch_size, *[1 for _ in rfft_shape], n_sample_points, ndims
     )
 
-    # B x *fft_shape x output_num_points x Ndims
+    # B x *rfft_shape x n_sample_points x Ndims
     sinusoid_coords = freqs * sample_points
 
-    # B x *fft_shape x output_num_points
+    # B x *rfft_shape x n_sample_points
     sinusoid_coords = sinusoid_coords.sum(dim=-1)
 
-    # B x *fft_shape
+    sinusoid_coords = sinusoid_coords * 2 * torch.pi
+
+    # B x *rfft_shape
     dims_to_fourier = tuple(range(1, ndims + 1))
-    fourier_coeffs: torch.Tensor = torch.fft.fftn(
+    fourier_coeffs: torch.Tensor = torch.fft.rfftn(
         original_values, dim=dims_to_fourier
     )
 
@@ -235,19 +238,21 @@ def n_fourier_interp(
         torch.tensor(1, device=device, dtype=torch.float),
     )
 
-    sinusoids = torch.cos(sinusoid_coords) + (
-        complex_j * torch.sin(sinusoid_coords)
-    )
+    # sinusoids = torch.cos(sinusoid_coords) + (
+    #     complex_j * torch.sin(sinusoid_coords)
+    # )
 
-    # B x *fft_shape x 1
+    sinusoids = torch.exp(complex_j * sinusoid_coords)
+
+    # B x *rfft_shape x 1
     fourier_coeffs = fourier_coeffs.unsqueeze(-1)
 
-    # B x *fft_shape x output_num_points
+    # B x *rfft_shape x n_sample_points
     sinusoids = fourier_coeffs * sinusoids
 
     # Average over all sinusoids
-    dims_to_collapse = tuple([i + 1 for i in range(len(fft_shape))])
-    # B x output_num_points
+    dims_to_collapse = tuple([i + 1 for i in range(len(rfft_shape))])
+    # B x n_sample_points
     interpolated = torch.mean(sinusoids, dim=dims_to_collapse)  
 
     # Un-complexify them

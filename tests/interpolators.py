@@ -33,9 +33,9 @@ for input_shape, output_shape in itertools.product(input_shapes, output_shapes):
 
 
 # Now we will visually inspect the 2D to 2D case
-input_shape = (4, 4)
+input_shape = (5, 5)
 
-for resolution in (4, 64):
+for resolution in (5, 64):
 
     output_shape = (resolution, resolution)
 
@@ -59,10 +59,10 @@ for resolution in (4, 64):
     fourier_output = fourier_interpolator(input_values, output_points)
 
     fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-    axes[0, 0].imshow(input_values[0])
-    axes[0, 1].imshow(linear_output[0])
-    axes[1, 0].imshow(linear_reference[0])
-    axes[1, 1].imshow(fourier_output[0])
+    plt.colorbar(axes[0, 0].imshow(input_values[0]))
+    plt.colorbar(axes[0, 1].imshow(linear_output[0]))
+    plt.colorbar(axes[1, 0].imshow(linear_reference[0]))
+    plt.colorbar(axes[1, 1].imshow(fourier_output[0]))
 
     plt.savefig(f"abacus/tests/interpn_test_{resolution}.png")
 
