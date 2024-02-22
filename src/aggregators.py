@@ -78,7 +78,7 @@ class LinearCombination(nn.Module):
         super().__init__()
         self.dim = dim
 
-        self.weights = torch.full(input_shape, 1/input_shape[dim])
+        self.weights = torch.full(input_shape, 1 / input_shape[dim])
         self.weights = nn.Parameter(self.weights)
 
         biases_shape = list(input_shape)

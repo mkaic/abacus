@@ -20,7 +20,9 @@ class SparseAbacusModel(nn.Module):
 
     def __init__(
         self,
-        data_shapes: List[Tuple[int]],
+        input_shapes: List[Tuple[int]],
+        mid_block_shapes: List[Tuple[int]],
+        output_shapes: List[Tuple[int]],
         data_dependent: bool = False,
         degree: int = 2,
         interpolator_class: nn.Module = LinearInterpolator,
@@ -29,6 +31,8 @@ class SparseAbacusModel(nn.Module):
     ):
         super().__init__()
         self.layers = nn.ModuleList()
+
+        data_shapes = input_shapes + mid_block_shapes + output_shapes
 
         for i in range(len(data_shapes) - 1):
             # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
