@@ -17,6 +17,6 @@ DEGREE = 2
 ### PARAM_COUNT = 13k
 1. 3.5%. Linear interpolation, FuzzyNAND aggregation.
 2. 4.0%. Fourier interpolation, FuzzyNAND aggregation.
-### PARAM_COUNT = 13k
-3. X.X%. Linear interpolation, linear combination aggregation.
+### PARAM_COUNT = 38k, DEGREE = 4
+3. 11.11%. Linear interpolation, linear combination aggregation.
 4. X.X%. Fourier interpolation, linear combination aggregation.

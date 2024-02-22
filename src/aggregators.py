@@ -78,13 +78,13 @@ class LinearCombination(nn.Module):
         super().__init__()
         self.dim = dim
 
-        self.weights = torch.randn(input_shape) * 0.01
+        self.weights = torch.full(input_shape, 1/input_shape[dim])
         self.weights = nn.Parameter(self.weights)
 
         biases_shape = list(input_shape)
         biases_shape.pop(dim)
 
-        self.biases = torch.randn(biases_shape) * 0.01
+        self.biases = torch.zeros(biases_shape)
         self.biases = nn.Parameter(self.biases)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
@@ -98,7 +98,7 @@ class LinearCombination(nn.Module):
 
         activations = activations + self.biases
 
-        activations = torch.relu(activations)
+        # activations = torch.relu(activations)
 
         return activations
 

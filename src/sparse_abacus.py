@@ -99,10 +99,6 @@ class SparseAbacusLayer(nn.Module):
         # Make activations continuous and sample from them at variable points
         activations = self.interpolator(activations, sample_points)
 
-        activations = activations.view(
-            batch_size, *self.output_shape, self.degree
-        )  # B x N_out x degree
-
         activations = self.aggregator(activations)  # B x N_out
 
         return activations

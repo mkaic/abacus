@@ -21,10 +21,10 @@ DATA_SHAPES = [
     128,
     100,
 ]
-LR = 1e-4
-DEGREE = 2
-INTERPOLATOR = FourierInterpolator
-AGGREGATOR = FuzzyNAND
+LR = 1e-3
+DEGREE = 4
+INTERPOLATOR = LinearInterpolator
+AGGREGATOR = LinearCombination
 
 print(f"{DATA_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}")
 
