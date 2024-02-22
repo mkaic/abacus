@@ -98,7 +98,7 @@ class LinearCombination(nn.Module):
 
         activations = activations + self.biases
 
-        # activations = torch.relu(activations)
+        activations = torch.relu(activations)
 
         return activations
 
