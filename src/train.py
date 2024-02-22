@@ -2,32 +2,38 @@ import torch
 from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
 from .model import SparseAbacusModel
+from .interpolators import LinearInterpolator, FourierInterpolator
+from .aggregators import LinearCombination, FuzzyNAND
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
 from tqdm import tqdm
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 512
+BATCH_SIZE = 64
 
 DATA_SHAPES = [
     (3, 32, 32),
-    (64, 64),
-    (64, 64),
-    (64, 64),
-    (64, 64),
-    1024,
-    512,
-    256,
+    (8, 8, 8),
+    (8, 8, 8),
+    (8, 8, 8),
+    (8, 8, 8),
     128,
     100,
 ]
 LR = 1e-4
 DEGREE = 2
+INTERPOLATOR = FourierInterpolator
+AGGREGATOR = FuzzyNAND
 
-print(f"{DATA_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {DEGREE=}, {LR=}")
+print(f"{DATA_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}")
 
-model = SparseAbacusModel(data_shapes=DATA_SHAPES, degree=DEGREE)
+model = SparseAbacusModel(
+    data_shapes=DATA_SHAPES,
+    degree=DEGREE,
+    interpolator_class=INTERPOLATOR,
+    aggregator_class=AGGREGATOR,
+)
 model = model.to(DEVICE)
 
 # Load the MNIST dataset
@@ -42,7 +48,7 @@ optimizer = Adam(model.parameters(), lr=LR)
 criterion = nn.CrossEntropyLoss().to(DEVICE)
 
 test_accuracy = 0
-for epoch in range(100):
+for epoch in range(5):
     model.train()
     pbar = tqdm(train_loader, leave=False)
     for x, y in pbar:
@@ -54,6 +60,8 @@ for epoch in range(100):
 
         loss = criterion(y_hat, y)
         loss.backward()
+
+        # print(model.layers[0].sample_points.grad[0])
 
         optimizer.step()
 

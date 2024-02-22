@@ -34,7 +34,16 @@ for input_shape, output_shape in itertools.product(input_shapes, output_shapes):
 
 print("VERIFYING FOURIER INTERP ON EVEN AND ODD SIZES")
 # Test that Fourier output is lossless at identical resolutions in all dimensions
-shapes = [(16,), (17,), (16, 16), (17, 17), (8, 8, 8), (9, 9, 9), (4, 4, 4, 4), (5, 5, 5, 5)]
+shapes = [
+    (16,),
+    (17,),
+    (16, 16),
+    (17, 17),
+    (8, 8, 8),
+    (9, 9, 9),
+    (4, 4, 4, 4),
+    (5, 5, 5, 5),
+]
 for shape in shapes:
     print(shape)
 
@@ -46,7 +55,9 @@ for shape in shapes:
         indexing="ij",
     )
     output_points = (
-        torch.stack(output_points, dim=-1).unsqueeze(0).expand(BATCH_SIZE, *[-1 for _ in shape], -1)
+        torch.stack(output_points, dim=-1)
+        .unsqueeze(0)
+        .expand(BATCH_SIZE, *[-1 for _ in shape], -1)
     )
     fourier_output = fourier_interpolator(input_values, output_points)
 

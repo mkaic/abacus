@@ -199,7 +199,7 @@ def n_fourier_interp(
     # AHAHAHAAHAHAHAHAAHAHAHAAA
     # I SPENT SO MANY HOURS TRYING TO FIGURE OUT WHY MY CODE WASN'T WORKING
     # AND IT WAS BECAUSE I WAS MAPPING THE SAMPLE POINTS FROM [0,1] TO [0, N]
-    # INSTEAD OF [0,1] TO [0, N-1]. 
+    # INSTEAD OF [0,1] TO [0, N-1].
     sample_points = sample_points * (fft_shape - 1).clamp(min=0)
 
     # list of (*fft_shape) with length Ndims
@@ -236,13 +236,11 @@ def n_fourier_interp(
 
     # B x *fft_shape
     dims_to_fourier = tuple(range(1, ndims + 1))
-    fourier_coeffs: torch.Tensor = torch.fft.fftn(
-        original_values, dim=dims_to_fourier
-    )
+    fourier_coeffs: torch.Tensor = torch.fft.fftn(original_values, dim=dims_to_fourier)
 
     sinusoids = torch.cos(sinusoid_coords) + complex_j * torch.sin(sinusoid_coords)
 
-    #sinusoids = torch.exp(complex_j * sinusoid_coords)
+    # sinusoids = torch.exp(complex_j * sinusoid_coords)
 
     # B x *fft_shape x 1
     fourier_coeffs = fourier_coeffs.unsqueeze(-1)
@@ -253,7 +251,7 @@ def n_fourier_interp(
     # Average over all sinusoids
     dims_to_collapse = tuple([i + 1 for i in range(len(fft_shape))])
     # B x n_sample_points
-    interpolated = torch.mean(sinusoids, dim=dims_to_collapse)  
+    interpolated = torch.mean(sinusoids, dim=dims_to_collapse)
 
     # Un-complexify them
     interpolated = interpolated.real
@@ -266,7 +264,7 @@ class FourierInterpolator(nn.Module):
         super().__init__()
         self.input_shape = input_shape
         self.output_shape = output_shape
-        self.n_output_el = np.prod(output_shape)
+        self.n_output_el = np.prod(self.output_shape)
 
     def forward(self, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
         """

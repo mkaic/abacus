@@ -63,7 +63,7 @@ class SparseAbacusModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
             x = layer(x)
         return x
 

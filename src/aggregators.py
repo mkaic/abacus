@@ -81,13 +81,18 @@ class LinearCombination(nn.Module):
         self.weights = torch.randn(input_shape) * 0.01
         self.weights = nn.Parameter(self.weights)
 
-        self.biases = torch.randn(input_shape) * 0.01
+        biases_shape = list(input_shape)
+        biases_shape.pop(dim)
+
+        self.biases = torch.randn(biases_shape) * 0.01
+        self.biases = nn.Parameter(self.biases)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
         :param activations: Some tensor with shape (B, ...), with dimension self.dim being the index of the dimension to reduce along.
         :return: A tensor with shape (B, ...), with the dimension at index self.dim being collapsed.
         """
+
         activations = activations * self.weights
         activations = torch.sum(activations, dim=self.dim)
 

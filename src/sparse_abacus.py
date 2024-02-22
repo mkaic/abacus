@@ -46,14 +46,20 @@ class SparseAbacusLayer(nn.Module):
         self.input_shape = (
             input_shape if isinstance(input_shape, Iterable) else (input_shape,)
         )
+        self.ndims_in = len(self.input_shape)
 
         self.output_shape = (
             output_shape if isinstance(output_shape, Iterable) else (output_shape,)
         )
 
-        self.interpolator = interpolator(input_shape, output_shape)
-        self.aggregator = aggregator([*output_shape, degree], dim=-1)
         self.degree = degree
+
+        self.activations_shape = (*self.output_shape, self.degree)
+        self.interpolator = interpolator(
+            input_shape=self.input_shape, output_shape=self.activations_shape
+        )
+        self.aggregator = aggregator(input_shape=self.activations_shape, dim=-1)
+
         self.sample_points_predictor = sample_points_predictor
         self.lookbehind = lookbehind
 
@@ -83,8 +89,8 @@ class SparseAbacusLayer(nn.Module):
         if self.sample_points_predictor is None:
             sample_points = self.sample_points
             sample_points = sample_points.expand(
-                batch_size, *self.output_shape, -1, -1
-            )  # B x *self.output_shape x degree
+                batch_size, *self.output_shape, self.degree, self.ndims_in
+            )  # B x *self.output_shape x degree x ndims_in
         else:
             sample_points = self.sample_points_predictor(activations)
 
