@@ -32,4 +32,7 @@ EPOCHS = 25
 10. 18.18%, Degree=4, 84k params. (mid-block lookbehind 2 -> 4)
 11. 18.05%, Degree=4, 84k params. (mid-block lookbehind 4 -> 8)
 12. 16.82%. 71k params. same as (7) but without ReLU or biases.
-13. xx.xx%. 74k params. same as (7) but with no ReLU.
+13. 17.64%. 74k params. same as (7) but with only biases, no ReLU.
+14. 22.53%. 71k params. same as (7) but with only ReLU, no biases.
+15. 22.91%. 71k params. same as (14) but with LeakyReLU(0.1).
+16. 22.56%. 71k params. same as (14) but with GELU.
