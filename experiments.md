@@ -36,3 +36,12 @@ EPOCHS = 25
 14. 22.53%. 71k params. same as (7) but with only ReLU, no biases.
 15. 22.91%. 71k params. same as (14) but with LeakyReLU(0.1).
 16. 22.56%. 71k params. same as (14) but with GELU.
+17. 15.63%. 66k params. degree 4, with params *roughly* doubled by widening the 4 mid-block layers to (10,10,10)
+18. 22.67%. 67k params. degree 16, with params made equal by shrinking the 4 mid-block layers to (6, 6, 6)
+19. 12.83%. 80k params. degree 10. 1x (5,5,5,5) layer. 10 x (5,5,5) layers.
+20. CUDA LAUNCH BLOCKING ERROR. 90k params. same as (19) but with lookbehind 5.
+21. 23.61%. 93k params. degree 8. 1x (6,6,6,6), 6x (6,6,6), lookbehind 6.
+22. 20.70%. 34k params. degree 6. 6x (6,6,6), lookbehind 1.
+23. 17.76%. 38k params. same as (22) but with lookbehind 3. Lookbehind truly doesn't seem to help at all.
+24. 9.47%. 34k params. same as (22) but with LR=1e-4 instead of 1e-3. Low LR is unnecessary.
+25. xx.xx%. 34k params. same as (22) but with LR=1e-2 instead of 1e-3.

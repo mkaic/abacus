@@ -13,14 +13,14 @@ import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 256
-LR = 1e-3
-DEGREE = 8
+LR = 1e-4
+DEGREE = 6
 INTERPOLATOR = LinearInterpolator
 AGGREGATOR = LinearCombination
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [(8, 8, 8) for _ in range(4)]
-OUTPUT_SHAPES = [(128,), (100,)]
+MID_BLOCK_SHAPES = [(6, 6, 6) for _ in range(6)]
+OUTPUT_SHAPES = [(100,)]
 
 LOOKBEHIND = 1
 EPOCHS = 100

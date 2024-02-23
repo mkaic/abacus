@@ -87,7 +87,7 @@ class LinearCombination(nn.Module):
         # self.biases = torch.zeros(biases_shape)
         # self.biases = nn.Parameter(self.biases)
 
-        self.activation_func = nn.GELU()
+        self.activation_func = nn.LeakyReLU(0.1)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
