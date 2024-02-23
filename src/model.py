@@ -30,45 +30,73 @@ class SparseAbacusModel(nn.Module):
         lookbehind: int = 1,
     ):
         super().__init__()
+        self.input_shapes = input_shapes
+        self.mid_block_shapes = mid_block_shapes
+        self.output_shapes = output_shapes
+        self.data_dependent = data_dependent
+        self.degree = degree
+        self.interpolator_class = interpolator_class
+        self.aggregator_class = aggregator_class
+        self.lookbehind = lookbehind
+        self.lookbehinds_list = (
+            [1 for _ in self.input_shapes]
+            + [1]
+            + [min(self.lookbehind, i) for i in range(1, len(mid_block_shapes))]
+            + [1 for _ in self.output_shapes]
+        )
+        self.n_mid_blocks = len(mid_block_shapes)
+
         self.layers = nn.ModuleList()
 
         data_shapes = input_shapes + mid_block_shapes + output_shapes
 
-        for i in range(len(data_shapes) - 1):
-            # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
-            if data_dependent:
-                sample_points_predictor = SparseAbacusLayer(
-                    input_shape=data_shapes[i],
-                    output_shape=data_shapes[i + 1],
-                    interpolator=interpolator_class,
-                    aggregator=aggregator_class,
-                    degree=degree,
-                    sample_points_predictor=None,
-                    lookbehind=lookbehind,
-                )
-            else:
-                sample_points_predictor = None
-
-            self.layers.append(
-                SparseAbacusLayer(
-                    input_shape=data_shapes[i],
-                    output_shape=data_shapes[i + 1],
-                    interpolator=interpolator_class,
-                    aggregator=aggregator_class,
-                    degree=degree,
-                    sample_points_predictor=sample_points_predictor,
-                    lookbehind=lookbehind,
-                )
-            )
+        for input_shape, output_shape, lookbehind in zip(
+            data_shapes[:-1], data_shapes[1:], self.lookbehinds_list
+        ):
+            if lookbehind > 1:
+                input_shape = [lookbehind, *input_shape]
+            self.layers.append(self.build_layer(input_shape, output_shape))
 
         param_count = sum(p.numel() for p in self.parameters())
         print(
             f"Initialized SparseAbacusModel with {param_count:,} total trainable parameters."
         )
 
+    def build_layer(self, input_shape, output_shape):
+        # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
+        if self.data_dependent:
+            sample_points_predictor = SparseAbacusLayer(
+                input_shape=input_shape,
+                output_shape=output_shape,
+                interpolator=self.interpolator_class,
+                aggregator=self.aggregator_class,
+                degree=self.degree,
+                sample_points_predictor=None,
+            )
+        else:
+            sample_points_predictor = None
+
+        return SparseAbacusLayer(
+            input_shape=input_shape,
+            output_shape=output_shape,
+            interpolator=self.interpolator_class,
+            aggregator=self.aggregator_class,
+            degree=self.degree,
+            sample_points_predictor=sample_points_predictor,
+            lookbehind=self.lookbehind,
+        )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        for i, layer in enumerate(self.layers):
+
+        activations = []
+
+        for layer, lookbehind in zip(self.layers, self.lookbehinds_list):
+
+            if lookbehind > 1:
+                x = torch.stack(activations[-lookbehind:], dim=1)
+
             x = layer(x)
+            activations.append(x)
         return x
 
     def clamp_params(self):

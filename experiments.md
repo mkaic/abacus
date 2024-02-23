@@ -27,4 +27,9 @@ EPOCHS = 25
 6. 14.08%. 25 epochs.
 — **Increased batch size (256) and training time (up to 100 epochs)**
 7. 22.94%, DEGREE=8, 74k params.
-8. 19.375, DEGREE=4, 73k params. (double mid-layer count)
+8. 19.37%, DEGREE=4, 73k params. (double mid-layer count)
+9. 19.65%, DEGREE=4, 84k params. (mid-block lookbehind 1 -> 2)
+10. 18.18%, Degree=4, 84k params. (mid-block lookbehind 2 -> 4)
+11. 18.05%, Degree=4, 84k params. (mid-block lookbehind 4 -> 8)
+12. 16.82%. 71k params. same as (7) but without ReLU or biases.
+13. xx.xx%. 74k params. same as (7) but with no ReLU.

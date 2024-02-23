@@ -53,6 +53,7 @@ class SparseAbacusLayer(nn.Module):
         )
 
         self.degree = degree
+        self.lookbehind = lookbehind
 
         self.activations_shape = (*self.output_shape, self.degree)
         self.interpolator = interpolator(
@@ -61,7 +62,6 @@ class SparseAbacusLayer(nn.Module):
         self.aggregator = aggregator(input_shape=self.activations_shape, dim=-1)
 
         self.sample_points_predictor = sample_points_predictor
-        self.lookbehind = lookbehind
 
         if self.sample_points_predictor is None:
             # linspaces = [torch.linspace(0, 1, n) for n in self.output_shape]
@@ -76,6 +76,8 @@ class SparseAbacusLayer(nn.Module):
             # sample_points = torch.clamp(sample_points, 0, 1)
 
             sample_points = torch.rand(*self.output_shape, self.degree, self.ndims_in)
+            # if self.lookbehind > 1:
+            #     sample_points[..., 0] = 1.0
 
             self.sample_points = nn.Parameter(sample_points)
 

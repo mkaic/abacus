@@ -13,31 +13,35 @@ import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 256
-
-DATA_SHAPES = [
-    (3, 32, 32),
-    *[(8, 8, 8) for _ in range(8)],
-    128,
-    100,
-]
 LR = 1e-3
-DEGREE = 4
+DEGREE = 8
 INTERPOLATOR = LinearInterpolator
 AGGREGATOR = LinearCombination
 
+INPUT_SHAPES = [(3, 32, 32)]
+MID_BLOCK_SHAPES = [(8, 8, 8) for _ in range(4)]
+OUTPUT_SHAPES = [(128,), (100,)]
+
+LOOKBEHIND = 1
 EPOCHS = 100
 
 print(
-    f"{DATA_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}"
+    f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}"
 )
 
 model = SparseAbacusModel(
-    data_shapes=DATA_SHAPES,
+    input_shapes=INPUT_SHAPES,
+    mid_block_shapes=MID_BLOCK_SHAPES,
+    output_shapes=OUTPUT_SHAPES,
     degree=DEGREE,
     interpolator_class=INTERPOLATOR,
     aggregator_class=AGGREGATOR,
+    lookbehind=LOOKBEHIND,
 )
 model = model.to(DEVICE)
+
+print(model.layers)
+print(model.lookbehinds_list)
 
 with warnings.catch_warnings():
     warnings.filterwarnings(
@@ -50,8 +54,12 @@ with warnings.catch_warnings():
 train = CIFAR100(root="./abacus/data", train=True, download=True, transform=ToTensor())
 test = CIFAR100(root="./abacus/data", train=False, download=True, transform=ToTensor())
 
-train_loader = DataLoader(train, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
-test_loader = DataLoader(test, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
+train_loader = DataLoader(
+    train, batch_size=BATCH_SIZE, shuffle=True, drop_last=False, num_workers=4
+)
+test_loader = DataLoader(
+    test, batch_size=BATCH_SIZE, shuffle=False, drop_last=False, num_workers=4
+)
 
 # Train the model
 optimizer = Adam(model.parameters(), lr=LR)
@@ -70,8 +78,6 @@ for epoch in range(EPOCHS):
 
         loss = criterion(y_hat, y)
         loss.backward()
-
-        # print(model.layers[0].sample_points.grad[0])
 
         optimizer.step()
 
