@@ -23,7 +23,7 @@ class SparseAbacusModel(nn.Module):
         input_shapes: List[Tuple[int]],
         mid_block_shapes: List[Tuple[int]],
         output_shapes: List[Tuple[int]],
-        data_dependent: bool = False,
+        data_dependent: List[bool] = None,
         degree: int = 2,
         interpolator_class: nn.Module = LinearInterpolator,
         aggregator_class: nn.Module = LinearCombination,
@@ -50,24 +50,24 @@ class SparseAbacusModel(nn.Module):
 
         data_shapes = input_shapes + mid_block_shapes + output_shapes
 
-        for input_shape, output_shape, lookbehind in zip(
-            data_shapes[:-1], data_shapes[1:], self.lookbehinds_list
+        for input_shape, output_shape, lookbehind, data_dependent in zip(
+            data_shapes[:-1], data_shapes[1:], self.lookbehinds_list, self.data_dependent
         ):
             if lookbehind > 1:
                 input_shape = [lookbehind, *input_shape]
-            self.layers.append(self.build_layer(input_shape, output_shape))
+            self.layers.append(self.build_layer(input_shape, output_shape, data_dependent))
 
         param_count = sum(p.numel() for p in self.parameters())
         print(
             f"Initialized SparseAbacusModel with {param_count:,} total trainable parameters."
         )
 
-    def build_layer(self, input_shape, output_shape):
+    def build_layer(self, input_shape, output_shape, data_dependent):
         # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
-        if self.data_dependent:
+        if data_dependent:
             sample_points_predictor = SparseAbacusLayer(
                 input_shape=input_shape,
-                output_shape=output_shape,
+                output_shape=(*output_shape, self.degree, len(input_shape)),
                 interpolator=self.interpolator_class,
                 aggregator=self.aggregator_class,
                 degree=self.degree,
@@ -88,7 +88,8 @@ class SparseAbacusModel(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
 
-        activations = []
+        if self.lookbehind > 1:
+            activations = []
 
         for layer, lookbehind in zip(self.layers, self.lookbehinds_list):
 
@@ -96,9 +97,13 @@ class SparseAbacusModel(nn.Module):
                 x = torch.stack(activations[-lookbehind:], dim=1)
 
             x = layer(x)
-            activations.append(x)
+
+            if lookbehind > 1:
+                x = x[..., -1]
+                activations.append(x)
         return x
 
     def clamp_params(self):
         for layer in self.layers:
             layer.clamp_params()
+

@@ -13,20 +13,25 @@ import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 256
-LR = 1e-4
-DEGREE = 6
+LR = 1e-3
+DEGREE = 8
 INTERPOLATOR = LinearInterpolator
 AGGREGATOR = LinearCombination
+DATA_DEPENDENT = [False for _ in range(9)]
+# DATA_DEPENDENT[-1] = True
+# DATA_DEPENDENT[-2] = True
+
+COMPILE = True
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [(6, 6, 6) for _ in range(6)]
+MID_BLOCK_SHAPES = [(8,8) for _ in range(8)]
 OUTPUT_SHAPES = [(100,)]
 
 LOOKBEHIND = 1
 EPOCHS = 100
 
 print(
-    f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}"
+    f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}, {DATA_DEPENDENT=}"
 )
 
 model = SparseAbacusModel(
@@ -37,18 +42,17 @@ model = SparseAbacusModel(
     interpolator_class=INTERPOLATOR,
     aggregator_class=AGGREGATOR,
     lookbehind=LOOKBEHIND,
+    data_dependent=DATA_DEPENDENT,
 )
 model = model.to(DEVICE)
 
 print(model.layers)
 print(model.lookbehinds_list)
+print(model.data_dependent)
 
 with warnings.catch_warnings():
-    warnings.filterwarnings(
-        "ignore",
-        message="Torchinductor does not support code generation for complex operators. Performance may be worse than eager.",
-    )
-    model = torch.compile(model, dynamic=True)
+    warnings.filterwarnings("ignore", category=UserWarning)
+    model = torch.compile(model, disable=not COMPILE)
 
 # Load the MNIST dataset
 train = CIFAR100(root="./abacus/data", train=True, download=True, transform=ToTensor())
@@ -81,7 +85,7 @@ for epoch in range(EPOCHS):
 
         optimizer.step()
 
-        model.clamp_params()
+        # model.clamp_params()
 
         pbar.set_description(
             f"Epoch {epoch}. Train: {loss.item():.4f}, Test: {test_accuracy:.2%}"
