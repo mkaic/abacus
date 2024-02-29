@@ -50,12 +50,20 @@ class SparseAbacusModel(nn.Module):
 
         data_shapes = input_shapes + mid_block_shapes + output_shapes
 
-        for input_shape, output_shape, lookbehind, data_dependent in zip(
-            data_shapes[:-1], data_shapes[1:], self.lookbehinds_list, self.data_dependent
+        for i, (input_shape, output_shape, lookbehind, data_dependent) in enumerate(
+            zip(
+                data_shapes[:-1],
+                data_shapes[1:],
+                self.lookbehinds_list,
+                self.data_dependent,
+            )
         ):
+
             if lookbehind > 1:
                 input_shape = [lookbehind, *input_shape]
-            self.layers.append(self.build_layer(input_shape, output_shape, data_dependent))
+            self.layers.append(
+                self.build_layer(input_shape, output_shape, data_dependent)
+            )
 
         param_count = sum(p.numel() for p in self.parameters())
         print(
@@ -106,4 +114,3 @@ class SparseAbacusModel(nn.Module):
     def clamp_params(self):
         for layer in self.layers:
             layer.clamp_params()
-

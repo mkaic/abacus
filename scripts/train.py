@@ -13,25 +13,23 @@ from pathlib import Path
 import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 LR = 1e-3
-DEGREE = 32
+DEGREE = 16
 INTERPOLATOR = LinearInterpolator
 AGGREGATOR = LinearCombination
-DATA_DEPENDENT = [False for _ in range(9)]
-# DATA_DEPENDENT[-1] = True
-# DATA_DEPENDENT[-2] = True
+DATA_DEPENDENT = [False for _ in range(17)]
 
 COMPILE = True
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [(256,)] #[(8,8) for _ in range(1)]
+MID_BLOCK_SHAPES = [(16, 16) for _ in range(16)]
 OUTPUT_SHAPES = [(100,)]
 
 LOOKBEHIND = 1
 EPOCHS = 100
 
-SAVE = False
+SAVE = True
 
 print(
     f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}, {DATA_DEPENDENT=}"
@@ -58,7 +56,7 @@ print(model.data_dependent)
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=UserWarning)
-    model = torch.compile(model, disable=not COMPILE)
+    model = torch.compile(model, disable=not COMPILE, dynamic=True)
 
 # Load the MNIST dataset
 train = CIFAR100(root="./abacus/data", train=True, download=True, transform=ToTensor())
@@ -79,7 +77,7 @@ test_accuracy = 0
 for epoch in range(EPOCHS):
     model.train()
     pbar = tqdm(train_loader, leave=False)
-    
+
     for x, y in pbar:
         optimizer.zero_grad()
 
@@ -92,15 +90,15 @@ for epoch in range(EPOCHS):
 
         optimizer.step()
 
-        model.clamp_params() 
-            
+        model.clamp_params()
+
         pbar.set_description(
             f"Epoch {epoch}. Train: {loss.item():.4f}, Test: {test_accuracy:.2%}"
         )
 
+    model.eval()
     if SAVE:
         torch.save(model.state_dict(), f"abacus/weights/{epoch:03d}.ckpt")
-    model.eval()
 
     total = 0
     correct = 0

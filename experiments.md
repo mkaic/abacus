@@ -77,3 +77,9 @@ Initialized SparseAbacusModel with 15,200 total trainable parameters.
 38. 14.87% 13k params. okay what happens if i up the degree from 8 to 32 and still have zero mid blocks?
 39. 17.09%. 51k params. let's up the degree to 128 now. i hate that this is working this well.
 40. 17.05%. 39k params. degree back to 32. added a 256 midblock. did nothing.
+41. 20.32%. 34k params. Realized that the real bottleneck with fourier interp is actually the *first layer* bc it's 32x32x3 sinusoids that have to be evaluated and that's non-negligible. Smaller midblock fourier layers are much cheaper and so for this run I am using LinearInterp for the first layer and FourierInterp for all subsequent layers. Same structure and param count as (22).
+42. 21.37%. 34k params. Same as (22) but with LeakyReLU negative slope of 0.5.
+43. 2.xx%. 34k params. Same as (42) but with ±1 neuron-variance gaussian noise added to sample points.
+44. 20.74%. 34k params. Same as (42) but with the noise has sigma 0.1 instead of 1.
+45. xx.xx%. 34k params. Same as (42) with noise sigma 0.2 instead of 1.
+46. xx.xx%. 206k params. (16x16) x 16, degree 16, noise sigma 0.2, batch_size 512.

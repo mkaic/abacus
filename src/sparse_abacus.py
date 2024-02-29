@@ -46,6 +46,9 @@ class SparseAbacusLayer(nn.Module):
         self.input_shape = (
             input_shape if isinstance(input_shape, Iterable) else (input_shape,)
         )
+        self.input_shape = torch.tensor(self.input_shape, dtype=torch.float32)
+        self.register_buffer("input_shape_tensor", self.input_shape)
+
         self.ndims_in = len(self.input_shape)
 
         self.output_shape = (
@@ -95,6 +98,11 @@ class SparseAbacusLayer(nn.Module):
             )  # B x *self.output_shape x degree x ndims_in
         else:
             sample_points = self.sample_points_predictor(activations)
+
+        if self.training:
+            sample_points = sample_points + (
+                (torch.randn_like(sample_points) / self.input_shape_tensor) / 5
+            )
 
         sample_points = torch.clamp(sample_points, 0, 1)
 
