@@ -1,3 +1,5 @@
+weights
+*.ckpt
 tests/images
 data
 # Byte-compiled / optimized / DLL files

@@ -8,13 +8,14 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
 from tqdm import tqdm
+from pathlib import Path
 
 import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 256
 LR = 1e-3
-DEGREE = 8
+DEGREE = 32
 INTERPOLATOR = LinearInterpolator
 AGGREGATOR = LinearCombination
 DATA_DEPENDENT = [False for _ in range(9)]
@@ -24,15 +25,20 @@ DATA_DEPENDENT = [False for _ in range(9)]
 COMPILE = True
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [(8,8) for _ in range(8)]
+MID_BLOCK_SHAPES = [(256,)] #[(8,8) for _ in range(1)]
 OUTPUT_SHAPES = [(100,)]
 
 LOOKBEHIND = 1
 EPOCHS = 100
 
+SAVE = False
+
 print(
     f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}, {DATA_DEPENDENT=}"
 )
+
+if not Path("abacus/weights").exists():
+    Path("abacus/weights").mkdir(parents=True)
 
 model = SparseAbacusModel(
     input_shapes=INPUT_SHAPES,
@@ -73,6 +79,7 @@ test_accuracy = 0
 for epoch in range(EPOCHS):
     model.train()
     pbar = tqdm(train_loader, leave=False)
+    
     for x, y in pbar:
         optimizer.zero_grad()
 
@@ -85,13 +92,16 @@ for epoch in range(EPOCHS):
 
         optimizer.step()
 
-        # model.clamp_params()
-
+        model.clamp_params() 
+            
         pbar.set_description(
             f"Epoch {epoch}. Train: {loss.item():.4f}, Test: {test_accuracy:.2%}"
         )
 
+    if SAVE:
+        torch.save(model.state_dict(), f"abacus/weights/{epoch:03d}.ckpt")
     model.eval()
+
     total = 0
     correct = 0
     with torch.no_grad():
@@ -100,8 +110,8 @@ for epoch in range(EPOCHS):
 
             y_hat = model(x)
 
-            _, predicted = torch.max(y_hat, 1)
-            total += y.size(0)
+            _, predicted = torch.max(y_hat, dim=1)
+            total += y.shape[0]
             correct += (predicted == y).sum().item()
 
     test_accuracy = correct / total

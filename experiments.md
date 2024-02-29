@@ -70,4 +70,10 @@ INPUT_SHAPES=[(3, 32, 32)], MID_BLOCK_SHAPES=[(8, 8), (8, 8), (8, 8), (8, 8), (8
 Initialized SparseAbacusModel with 15,200 total trainable parameters.
 ```
 33. 14.28%. 15k params. trying out a tiny fourier-interp based model again bc I'm hitting a wall with Linear Interp.
-34. 15.20%. 15k params. same as (33) but with Linear Interp as a fair side-by-side comparison. urgh.
+34. 15.20%. 15k params. same as (33) but with Linear Interp as a fair side-by-side comparison. urgh. giving up on Fourier again now.
+35. 16.16%. 15k params. same as (33) but I'm logging the weights every epoch now. Also re-enabled sample points clipping, which I had forgotten was disabled at one point.
+36. 16.74%. 9k params. same as (33) but only 4 (8,8) mid-block layers this time. a truly miniscule model. good god it outperformed the one twice its size, what the hell is wrong with my architecture's grad flow lmao??
+37. 9.58%. 3k params. Let's take it to the logical extreme. No mid-block layers at all. Literally just an output layer directly sampling and aggregating from the input image. WHY DOES IT GET TO 10% ACC AAAAAA.
+38. 14.87% 13k params. okay what happens if i up the degree from 8 to 32 and still have zero mid blocks?
+39. 17.09%. 51k params. let's up the degree to 128 now. i hate that this is working this well.
+40. 17.05%. 39k params. degree back to 32. added a 256 midblock. did nothing.
