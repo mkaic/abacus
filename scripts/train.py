@@ -3,7 +3,7 @@ from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
 from ..src.model import SparseAbacusModel
 from ..src.interpolators import LinearInterpolator, FourierInterpolator
-from ..src.aggregators import LinearFuzzyNAND, FuzzyNAND
+from ..src.aggregators import LinearFuzzyNAND
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
@@ -13,34 +13,31 @@ from pathlib import Path
 import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+EPOCHS = 100
 BATCH_SIZE = 256
 LR = 1e-3
 DEGREE = 2
 INTERPOLATOR = LinearInterpolator
 AGGREGATOR = LinearFuzzyNAND
 
-
-def truegen():
-    yield True
-
-
-DATA_DEPENDENT = [False for _ in range(100)]
-
-COMPILE = True
-
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [tuple([10] * 3) for _ in range(4)] + [
-    tuple([4] * 4) for _ in range(28)
-]
+MID_BLOCK_SHAPES = [tuple([4] * 4) for _ in range(8)]
 OUTPUT_SHAPES = [(100,)]
 
-LOOKBEHIND = 1
-EPOCHS = 100
-
+COMPILE = True
 SAVE = True
 
 print(
-    f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}"
+    f"""
+{INPUT_SHAPES=}, 
+{MID_BLOCK_SHAPES=}, 
+{OUTPUT_SHAPES=}, 
+{DEGREE=}, 
+{BATCH_SIZE=}, 
+{INTERPOLATOR=}, 
+{AGGREGATOR=}, 
+{EPOCHS=}
+"""
 )
 
 if not Path("abacus/weights").exists():
@@ -53,18 +50,15 @@ model = SparseAbacusModel(
     degree=DEGREE,
     interpolator_class=INTERPOLATOR,
     aggregator_class=AGGREGATOR,
-    lookbehind=LOOKBEHIND,
-    data_dependent=DATA_DEPENDENT,
 )
 model = model.to(DEVICE)
 
 print(model.layers)
-print(model.lookbehinds_list)
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=UserWarning)
-    torch._dynamo.config.cache_size_limit = 64
     model = torch.compile(model, disable=not COMPILE)
+    model: SparseAbacusModel
 
 # Load the MNIST dataset
 train = CIFAR100(root="./abacus/data", train=True, download=True, transform=ToTensor())
@@ -94,6 +88,7 @@ for epoch in range(EPOCHS):
         y_hat = model(x)
 
         loss = criterion(y_hat, y)
+        loss: torch.Tensor
         loss.backward()
 
         optimizer.step()
@@ -112,6 +107,10 @@ for epoch in range(EPOCHS):
     correct = 0
     with torch.no_grad():
         for x, y in tqdm(test_loader, leave=False):
+
+            x: torch.Tensor
+            y: torch.Tensor
+
             x, y = x.to(DEVICE), y.to(DEVICE)
 
             y_hat = model(x)

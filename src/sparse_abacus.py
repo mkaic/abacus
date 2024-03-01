@@ -5,9 +5,6 @@ import torch.nn as nn
 from collections.abc import Iterable
 from typing import Tuple
 
-from .aggregators import FuzzyNAND, LinearFuzzyNAND
-from .interpolators import LinearInterpolator
-
 
 EPSILON = 1e-8
 
@@ -36,8 +33,8 @@ class SparseAbacusLayer(nn.Module):
         self,
         input_shape: Tuple[int],
         output_shape: Tuple[int],
-        interpolator: nn.Module = LinearInterpolator,
-        aggregator: nn.Module = LinearFuzzyNAND,
+        interpolator: nn.Module,
+        aggregator: nn.Module,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
         residual: bool = False,
@@ -70,9 +67,7 @@ class SparseAbacusLayer(nn.Module):
             sample_points = torch.rand(*self.output_shape, self.degree, self.ndims_in)
             self.sample_points = nn.Parameter(sample_points)
 
-    def forward(
-        self, activations: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, activations: torch.Tensor) -> torch.Tensor:
         """
         :param activations: Expected shape: (B x N_in). Will be clamped to [0, 1].
         :return: Expected shape: (B x N_out).
@@ -90,7 +85,7 @@ class SparseAbacusLayer(nn.Module):
             sample_points = sample_points.expand(
                 batch_size, *self.output_shape, self.degree, self.ndims_in
             )  # B x *self.output_shape x degree x ndims_in
-            
+
         # if self.training and self.noisy_sampling:
         #     sample_points = sample_points + (
         #         (torch.randn_like(sample_points) / self.input_shape_tensor) / 10
