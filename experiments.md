@@ -91,4 +91,23 @@ Initialized SparseAbacusModel with 15,200 total trainable parameters.
 52. 25.06%. 68k params. (6,6,6) x 6, degree 12
 53. 24.06%. 77k params. same as (52) but with lookbehind=6. Lookbehind is doomed it seems.
 54. 24.90%. 87k params. (4,4,4,4) x 4, degree 16
-54. xx.xx%. 87k params. (5,5,5,5) x 5, degree 8, lookbehind=1
+55. 19.07%. 65k params. (5,5,5,5) x 5, degree 4, lookbehind=1
+56. 17.60%. 34k params. Same as (55) but with degree 2.
+57. 17.xx#. stopped early. 181k params. (7,7,7,7) x 7, degree 2.
+58. 17-ish%. stopped early as asymptote was obvious. 25k params. (3**5) x 8, degree 2.
+59. 17-ish%. stopped early. 23k params. (4**4) x 8. degree 2. LinearCombo agg.
+60. 21.70%. 23k params. same as (59) but trying out FuzzyNAND as an activation function in LinearCombo. the dream for fuzzy logic degree-2 sparse networks has not died. yet. HELL YEAH IT OUTPERFORMED LeakyReLU
+61. 9.xx%. 34k params. same as (60) but with degree-3 because I'm curious how well that will play with the FuzzyNAND activation. got stuck.
+62. 9.xx%. 44k params. what about degree=4? is it an even-odd thing maybe? result: no, degree=2 is just optimal for FuzzyNAND.
+63. 9.xx%, 46k params. let's go deeper. 8 layers -> 16 layers. otherwise same as (60). result: got stuck.
+64. 10.xx%, 113k params. same as (60) but with midblock layer size (6**4) now.
+65. 9.xx%, 50k params. (4**5) x 4.
+NOTE: accidentally turned on input clamping prior to FuzzyNAND and forgot, that was disastrous! it absolutely cripples gradient flow I think.
+66. 12.xx%, 17k params. Same as (59) but without weights and biases, only trainable params are sample points and activation is FuzzyNAND *WITHOUT* input clamping. result: stagnated at 12%. maybe adding leakyrelu after fuzzynand could help?
+67. NIXED, 25k params. Same as (66) but with degree 3 just to sanity check and make sure it wasn't the clamping that borked (61). result: lags behind degree 2 like before.
+68. 21.xx%, 46k params. a clone of (63) to see if *that* was borked by clamping. result: IT WAS. deep networks can actually train, yay!
+69 (nice). xx.xx%, 68k params. (32,32) x 16, no weights, no biases.
+70. 18.xx%, 60k params. (32,32) x 8, WITH weights and biases.
+71. 21.xx%, 25k params. (4**4) x 8, weighted and biased, with an additional parameter per neuron to allow for weighting between FuzzyNAND and FuzzyNOR. No clear benefit.
+72. NIXED, TOO SLOW, 85k params. (3**6) x 8, weighted/biased FuzzyNAND. Degree 2.
+72. xx.xx%, 113k params. (6**4) x 8, weighted/biased FuzzyNAND. Degree 2.

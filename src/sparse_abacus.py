@@ -5,7 +5,7 @@ import torch.nn as nn
 from collections.abc import Iterable
 from typing import Tuple
 
-from .aggregators import FuzzyNAND, LinearCombination
+from .aggregators import FuzzyNAND, WeightedAndBiasedAggregator
 from .interpolators import LinearInterpolator
 
 
@@ -37,7 +37,7 @@ class SparseAbacusLayer(nn.Module):
         input_shape: Tuple[int],
         output_shape: Tuple[int],
         interpolator: nn.Module = LinearInterpolator,
-        aggregator: nn.Module = LinearCombination,
+        aggregator: nn.Module = WeightedAndBiasedAggregator,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
         lookbehind: int = 1,
@@ -118,7 +118,7 @@ class SparseAbacusLayer(nn.Module):
 
         # if self.training:
         #     sample_points = sample_points + (
-        #         (torch.randn_like(sample_points) / self.input_shape_tensor) / 5
+        #         (torch.randn_like(sample_points) / self.input_shape_tensor) / 10
         #     )
 
         sample_points = torch.clamp(sample_points, 0, 1)
