@@ -110,4 +110,4 @@ NOTE: accidentally turned on input clamping prior to FuzzyNAND and forgot, that 
 70. 18.xx%, 60k params. (32,32) x 8, WITH weights and biases.
 71. 21.xx%, 25k params. (4**4) x 8, weighted and biased, with an additional parameter per neuron to allow for weighting between FuzzyNAND and FuzzyNOR. No clear benefit.
 72. NIXED, TOO SLOW, 85k params. (3**6) x 8, weighted/biased FuzzyNAND. Degree 2.
-72. xx.xx%, 113k params. (6**4) x 8, weighted/biased FuzzyNAND. Degree 2.
+73. 24.26%, 113k params. (10**3) x 4, (8**3) x 28.

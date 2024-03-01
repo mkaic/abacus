@@ -29,7 +29,7 @@ DATA_DEPENDENT = [False for _ in range(100)]
 COMPILE = True
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [tuple([6]*4) for _ in range(8)]
+MID_BLOCK_SHAPES = [tuple([10]*3) for _ in range(4)] + [tuple([4]*4) for _ in range(28)]
 OUTPUT_SHAPES = [(100,)]
 
 LOOKBEHIND = 1
@@ -61,6 +61,7 @@ print(model.lookbehinds_list)
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=UserWarning)
+    torch._dynamo.config.cache_size_limit = 64
     model = torch.compile(model, disable=not COMPILE)
 
 # Load the MNIST dataset
