@@ -36,6 +36,3 @@ class LinearFuzzyNAND(nn.Module):
         # activations = self.activation_func(activations)
 
         return activations
-
-    def clamp_params(self):
-        pass

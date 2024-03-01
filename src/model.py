@@ -23,44 +23,48 @@ class SparseAbacusModel(nn.Module):
         input_shapes: List[Tuple[int]],
         mid_block_shapes: List[Tuple[int]],
         output_shapes: List[Tuple[int]],
-        data_dependent: List[bool] = None,
         degree: int = 2,
         interpolator_class: nn.Module = LinearInterpolator,
         aggregator_class: nn.Module = LinearFuzzyNAND,
-        lookbehind: int = 1,
     ):
         super().__init__()
         self.input_shapes = input_shapes
         self.mid_block_shapes = mid_block_shapes
         self.output_shapes = output_shapes
-        self.data_dependent = data_dependent
         self.degree = degree
         self.interpolator_class = interpolator_class
         self.aggregator_class = aggregator_class
-        self.lookbehind = lookbehind
-        self.lookbehinds_list = (
-            [1 for _ in self.input_shapes]
-            + [1]
-            + [min(self.lookbehind, i) for i in range(1, len(mid_block_shapes))]
-            + [1 for _ in self.output_shapes]
-        )
         self.n_mid_blocks = len(mid_block_shapes)
 
         self.layers = nn.ModuleList()
 
         data_shapes = input_shapes + mid_block_shapes + output_shapes
 
-        for i, (input_shape, output_shape, lookbehind, data_dependent) in enumerate(
-            zip(
-                data_shapes[:-1],
-                data_shapes[1:],
-                self.lookbehinds_list,
-                self.data_dependent,
-            )
-        ):
-
+        # Input layers
+        for i in range(len(input_shapes)):
             self.layers.append(
-                self.build_layer(input_shape, output_shape, data_dependent, lookbehind)
+                self.build_layer(
+                    input_shape=data_shapes[i],
+                    output_shape=data_shapes[i + 1],
+                )
+            )
+
+        # Mid-block layers
+        for i in range(len(input_shapes), len(input_shapes) + len(mid_block_shapes)):
+            self.layers.append(
+                self.build_layer(
+                    input_shape=data_shapes[i],
+                    output_shape=data_shapes[i + 1],
+                )
+            )
+
+        # Output layers
+        for i in range(len(input_shapes) + len(mid_block_shapes), len(data_shapes) - 1):
+            self.layers.append(
+                self.build_layer(
+                    input_shape=data_shapes[i],
+                    output_shape=data_shapes[i + 1],
+                )
             )
 
         param_count = sum(p.numel() for p in self.parameters())
@@ -68,13 +72,10 @@ class SparseAbacusModel(nn.Module):
             f"Initialized SparseAbacusModel with {param_count:,} total trainable parameters."
         )
 
-    def build_layer(self, input_shape, output_shape, data_dependent, lookbehind):
+    def build_layer(self, input_shape, output_shape, data_dependent=False):
         # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
 
         residual = input_shape == output_shape
-
-        if lookbehind > 1:
-            input_shape = [lookbehind, *input_shape]
 
         if data_dependent:
             sample_points_predictor = SparseAbacusLayer(
@@ -95,27 +96,12 @@ class SparseAbacusModel(nn.Module):
             aggregator=self.aggregator_class,
             degree=self.degree,
             sample_points_predictor=sample_points_predictor,
-            lookbehind=lookbehind,
             residual=residual,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-
-        if self.lookbehind > 1:
-            activations = []
-
-        for layer, lookbehind in zip(self.layers, self.lookbehinds_list):
-
-            if lookbehind > 1:
-                cache = torch.stack(activations[-lookbehind:], dim=1)
-            else:
-                cache = None
-
-            x = layer(x, cache=cache)
-
-            # self.lookbehind is different (it's global) from just lookbehind (which is local for this layer)
-            if self.lookbehind > 1:
-                activations.append(x)
+        for layer in self.layers:
+            x = layer(x)
         return x
 
     def clamp_params(self):

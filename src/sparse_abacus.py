@@ -40,7 +40,6 @@ class SparseAbacusLayer(nn.Module):
         aggregator: nn.Module = LinearFuzzyNAND,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
-        lookbehind: int = 1,
         residual: bool = False,
     ) -> None:
         super().__init__()
@@ -57,8 +56,6 @@ class SparseAbacusLayer(nn.Module):
         )
 
         self.degree = degree
-        self.lookbehind = lookbehind
-
         self.residual = residual
 
         self.activations_shape = (*self.output_shape, self.degree)
@@ -70,25 +67,11 @@ class SparseAbacusLayer(nn.Module):
         self.sample_points_predictor = sample_points_predictor
 
         if self.sample_points_predictor is None:
-            # linspaces = [torch.linspace(0, 1, n) for n in self.output_shape]
-            # sample_points = torch.cartesian_prod(*linspaces)
-
-            # sample_points = sample_points.reshape(*self.output_shape, 1, self.ndims_out)
-
-            # sample_points = sample_points.expand(
-            #     *self.output_shape, self.degree, self.ndims_out
-            # )
-            # sample_points = sample_points + torch.rand_like(sample_points) * 0.01
-            # sample_points = torch.clamp(sample_points, 0, 1)
-
             sample_points = torch.rand(*self.output_shape, self.degree, self.ndims_in)
-            # if self.lookbehind > 1:
-            #     sample_points[..., 0] = 1.0
-
             self.sample_points = nn.Parameter(sample_points)
 
     def forward(
-        self, activations: torch.Tensor, cache: torch.Tensor = None
+        self, activations: torch.Tensor
     ) -> torch.Tensor:
         """
         :param activations: Expected shape: (B x N_in). Will be clamped to [0, 1].
@@ -98,25 +81,17 @@ class SparseAbacusLayer(nn.Module):
         if self.residual:
             og_activations = activations.clone()
 
-        if self.lookbehind > 1:
-            if cache is None:
-                raise ValueError(
-                    "This layer has lookbehind > 1, but no cache was provided."
-                )
-
-            activations = torch.cat([cache, activations.unsqueeze(1)], dim=1)
-
         batch_size = activations.shape[0]
 
-        if self.sample_points_predictor is None:
+        if self.sample_points_predictor is not None:
+            sample_points = self.sample_points_predictor(activations)
+        else:
             sample_points = self.sample_points
             sample_points = sample_points.expand(
                 batch_size, *self.output_shape, self.degree, self.ndims_in
             )  # B x *self.output_shape x degree x ndims_in
-        else:
-            sample_points = self.sample_points_predictor(activations)
-
-        # if self.training:
+            
+        # if self.training and self.noisy_sampling:
         #     sample_points = sample_points + (
         #         (torch.randn_like(sample_points) / self.input_shape_tensor) / 10
         #     )
@@ -125,7 +100,6 @@ class SparseAbacusLayer(nn.Module):
 
         # Make activations continuous and sample from them at variable points
         activations = self.interpolator(activations, sample_points)
-
         activations = self.aggregator(activations)  # B x N_out
 
         if self.residual:
@@ -138,5 +112,3 @@ class SparseAbacusLayer(nn.Module):
             self.sample_points.data.clamp_(0, 1)
         else:
             self.sample_points_predictor.clamp_params()
-
-        self.aggregator.clamp_params()
