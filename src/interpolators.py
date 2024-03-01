@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from typing import Tuple
-from scipy.interpolate import interpn
 import numpy as np
 
 EPSILON = 1e-8
@@ -136,40 +135,6 @@ class LinearInterpolator(nn.Module):
         xnew = xnew.reshape(batch_size, self.n_output_el, len(self.input_shape))
         ynew = n_linear_interp(y, xnew)
         ynew = ynew.view(batch_size, *self.output_shape)
-
-        return ynew
-
-
-class SciPyLinearInterpolator(LinearInterpolator):
-    """Exclusively for testing purposes, to sanity check my batched tensor implementation"""
-
-    def forward(self, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
-        """
-        :param y: The original values.
-        :param xnew: The xnew points to which y shall be interpolated.
-        :return: The interpolated values ynew at xnew.
-        """
-        batch_size = y.shape[0]
-
-        xnew = xnew.reshape(batch_size, self.n_output_el, len(self.input_shape))
-        ynew = torch.stack(
-            [
-                torch.tensor(
-                    interpn(
-                        [
-                            torch.linspace(0, 1, self.input_shape[i]).numpy()
-                            for i in range(len(self.input_shape))
-                        ],
-                        y[i].numpy(),
-                        xnew[i].flatten(end_dim=-2).numpy(),
-                        method="linear",
-                    )
-                )
-                for i in range(y.shape[0])
-            ]
-        )
-        ynew = ynew.view(batch_size, *self.output_shape)
-        ynew = ynew.float()
 
         return ynew
 

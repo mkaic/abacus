@@ -5,7 +5,7 @@ import torch.nn as nn
 from collections.abc import Iterable
 from typing import Tuple
 
-from .aggregators import FuzzyNAND, WeightedAndBiasedAggregator
+from .aggregators import FuzzyNAND, LinearFuzzyNAND
 from .interpolators import LinearInterpolator
 
 
@@ -37,7 +37,7 @@ class SparseAbacusLayer(nn.Module):
         input_shape: Tuple[int],
         output_shape: Tuple[int],
         interpolator: nn.Module = LinearInterpolator,
-        aggregator: nn.Module = WeightedAndBiasedAggregator,
+        aggregator: nn.Module = LinearFuzzyNAND,
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
         lookbehind: int = 1,

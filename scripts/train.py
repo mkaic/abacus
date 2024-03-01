@@ -3,7 +3,7 @@ from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
 from ..src.model import SparseAbacusModel
 from ..src.interpolators import LinearInterpolator, FourierInterpolator
-from ..src.aggregators import WeightedAndBiasedAggregator, FuzzyNAND
+from ..src.aggregators import LinearFuzzyNAND, FuzzyNAND
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
@@ -17,7 +17,7 @@ BATCH_SIZE = 256
 LR = 1e-3
 DEGREE = 2
 INTERPOLATOR = LinearInterpolator
-AGGREGATOR = WeightedAndBiasedAggregator
+AGGREGATOR = LinearFuzzyNAND
 
 
 def truegen():
@@ -29,7 +29,9 @@ DATA_DEPENDENT = [False for _ in range(100)]
 COMPILE = True
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [tuple([10]*3) for _ in range(4)] + [tuple([4]*4) for _ in range(28)]
+MID_BLOCK_SHAPES = [tuple([10] * 3) for _ in range(4)] + [
+    tuple([4] * 4) for _ in range(28)
+]
 OUTPUT_SHAPES = [(100,)]
 
 LOOKBEHIND = 1

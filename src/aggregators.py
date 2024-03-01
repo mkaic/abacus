@@ -3,74 +3,7 @@ import torch.nn as nn
 from typing import Tuple
 
 
-class FuzzyNAND(nn.Module):
-    def __init__(self, input_shape: Tuple[int] = None, dim=-1):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, activations: torch.Tensor) -> torch.Tensor:
-        """
-        Assuming fuzzy AND is multiplication and fuzzy NOT is (1 - x), fuzzy NAND is therefore defined as (NOT a) AND (NOT b), or: (1 - a) * (1 - b).
-        :param activations: Expected shape: (B x N x degree).
-        :return: Aggregated inputs, of shape (B x N).
-        """
-        activations = 1 - activations
-        activations = torch.prod(activations, dim=self.dim)
-        return activations
-
-    def clamp_params(self):
-        pass
-
-
-class FuzzyNOR(nn.Module):
-    def __init__(self, input_shape: Tuple[int] = None, dim=-1):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, activations: torch.Tensor) -> torch.Tensor:
-        """
-        Assuming fuzzy OR is addition and fuzzy NOT is (1 - x), fuzzy NOR is therefore defined as (NOT a) OR (NOT b), or: 1 - (a + b).
-        :param activations: Expected shape: (B x N x degree).
-        :return: Aggregated inputs, of shape (B x N).
-        """
-        #
-
-        activations = 1 - torch.sum(activations, dim=self.dim)
-        activations = activations.clamp(0, 1)
-        return activations
-
-    def clamp_params(self):
-        pass
-
-
-class FuzzyNANDNOR(nn.Module):
-    """
-    A weighted linear combination of fuzzy NAND and fuzzy NOR.
-    """
-
-    def __init__(self, input_shape: Tuple[int], dim=-1):
-        super().__init__()
-
-        self.nand = FuzzyNAND(dim=dim)
-        self.nor = FuzzyNOR(dim=dim)
-
-        self.weights = torch.rand(*input_shape[:-1])
-        self.weights = nn.Parameter(self.weights)
-
-    def forward(self, activations: torch.Tensor) -> torch.Tensor:
-        nand = self.nand(activations)
-        nor = self.nor(activations)
-
-        weights = self.weights.clamp(0, 1)
-        activations = ((1 - weights) * nand) + (weights * nor)
-
-        return activations
-
-    def clamp_params(self):
-        self.weights.data.clamp_(0, 1)
-
-
-class WeightedAndBiasedAggregator(nn.Module):
+class LinearFuzzyNAND(nn.Module):
     def __init__(self, input_shape: Tuple[int], dim: int = -1):
         super().__init__()
         self.dim = dim
@@ -84,8 +17,6 @@ class WeightedAndBiasedAggregator(nn.Module):
         self.biases = torch.zeros(biases_shape)
         self.biases = nn.Parameter(self.biases)
 
-        self.aggregator = FuzzyNAND(input_shape=input_shape, dim=dim)
-
         # self.activation_func = nn.LeakyReLU(0.5)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
@@ -95,11 +26,10 @@ class WeightedAndBiasedAggregator(nn.Module):
         """
 
         activations = activations * self.weights
-        # activations = torch.sum(activations, dim=self.dim)
 
         # FuzzyNAND
-        # activations = torch.clamp(activations, 0, 1)
-        activations = self.aggregator(activations)
+        activations = 1 - activations
+        activations = torch.prod(activations, dim=self.dim)
 
         activations = activations + self.biases
 
