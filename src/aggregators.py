@@ -81,11 +81,11 @@ class LinearCombination(nn.Module):
         self.weights = torch.full(input_shape, 1 / input_shape[dim])
         self.weights = nn.Parameter(self.weights)
 
-        # biases_shape = list(input_shape)
-        # biases_shape.pop(dim)
+        biases_shape = list(input_shape)
+        biases_shape.pop(dim)
 
-        # self.biases = torch.zeros(biases_shape)
-        # self.biases = nn.Parameter(self.biases)
+        self.biases = torch.zeros(biases_shape)
+        self.biases = nn.Parameter(self.biases)
 
         self.activation_func = nn.LeakyReLU(0.5)
 
@@ -98,7 +98,7 @@ class LinearCombination(nn.Module):
         activations = activations * self.weights
         activations = torch.sum(activations, dim=self.dim)
 
-        # activations = activations + self.biases
+        activations = activations + self.biases
 
         activations = self.activation_func(activations)
 

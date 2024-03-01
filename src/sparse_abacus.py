@@ -41,6 +41,7 @@ class SparseAbacusLayer(nn.Module):
         degree: int = 2,
         sample_points_predictor: nn.Module = None,
         lookbehind: int = 1,
+        residual: bool = False,
     ) -> None:
         super().__init__()
         self.input_shape = (
@@ -57,6 +58,8 @@ class SparseAbacusLayer(nn.Module):
 
         self.degree = degree
         self.lookbehind = lookbehind
+
+        self.residual = residual
 
         self.activations_shape = (*self.output_shape, self.degree)
         self.interpolator = interpolator(
@@ -84,11 +87,25 @@ class SparseAbacusLayer(nn.Module):
 
             self.sample_points = nn.Parameter(sample_points)
 
-    def forward(self, activations: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, activations: torch.Tensor, cache: torch.Tensor = None
+    ) -> torch.Tensor:
         """
         :param activations: Expected shape: (B x N_in). Will be clamped to [0, 1].
         :return: Expected shape: (B x N_out).
         """
+
+        if self.residual:
+            og_activations = activations.clone()
+
+        if self.lookbehind > 1:
+            if cache is None:
+                raise ValueError(
+                    "This layer has lookbehind > 1, but no cache was provided."
+                )
+
+            activations = torch.cat([cache, activations.unsqueeze(1)], dim=1)
+
         batch_size = activations.shape[0]
 
         if self.sample_points_predictor is None:
@@ -99,10 +116,10 @@ class SparseAbacusLayer(nn.Module):
         else:
             sample_points = self.sample_points_predictor(activations)
 
-        if self.training:
-            sample_points = sample_points + (
-                (torch.randn_like(sample_points) / self.input_shape_tensor) / 5
-            )
+        # if self.training:
+        #     sample_points = sample_points + (
+        #         (torch.randn_like(sample_points) / self.input_shape_tensor) / 5
+        #     )
 
         sample_points = torch.clamp(sample_points, 0, 1)
 
@@ -110,6 +127,9 @@ class SparseAbacusLayer(nn.Module):
         activations = self.interpolator(activations, sample_points)
 
         activations = self.aggregator(activations)  # B x N_out
+
+        if self.residual:
+            activations = activations + og_activations
 
         return activations
 

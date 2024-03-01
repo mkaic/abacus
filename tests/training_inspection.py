@@ -5,7 +5,7 @@ from pprint import pprint
 
 weights = []
 
-for fname in sorted(os.listdir("abacus/weights"))[::10]:
+for fname in sorted(os.listdir("abacus/weights"))[:70:10]:
     if fname.endswith(".ckpt"):
         weights.append(torch.load(f"abacus/weights/{fname}"))
 
@@ -16,5 +16,5 @@ weights_over_time = {
 
 pprint(weights_over_time.keys())
 
-print(weights_over_time["_orig_mod.layers.0.sample_points"].shape)
-print(weights_over_time["_orig_mod.layers.0.sample_points"][:, 0, 0, 0, 0])
+print(weights_over_time["_orig_mod.layers.5.aggregator.weights"].shape)
+print(weights_over_time["_orig_mod.layers.5.aggregator.weights"][:, 0, 0, 0])

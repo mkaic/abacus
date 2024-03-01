@@ -81,5 +81,14 @@ Initialized SparseAbacusModel with 15,200 total trainable parameters.
 42. 21.37%. 34k params. Same as (22) but with LeakyReLU negative slope of 0.5.
 43. 2.xx%. 34k params. Same as (42) but with ±1 neuron-variance gaussian noise added to sample points.
 44. 20.74%. 34k params. Same as (42) but with the noise has sigma 0.1 instead of 1.
-45. xx.xx%. 34k params. Same as (42) with noise sigma 0.2 instead of 1.
-46. xx.xx%. 206k params. (16x16) x 16, degree 16, noise sigma 0.2, batch_size 512.
+45. 17.xx%. 34k params. Same as (42) with noise sigma 0.2 instead of 1.
+46. 2.xx%. 206k params. (16x16) x 16, degree 16, noise sigma 0.2, batch_size 512.
+47. like 20%. 34k params. 10 x (10,10), degree 10. residual connections in all midblocks.
+48. MEH%. 34k params. same as (47) but with noise sigma 0.2 added back.
+49. 24.79%. 81k params. (5,5,5) x 10, degree 15. residuals!
+50. 25.24%. 82k params. same as (49) but with biases added back in to the aggregator layers.
+51. 24.20%. 84k params. (4,4,4) x 12, degree 24.
+52. 25.06%. 68k params. (6,6,6) x 6, degree 12
+53. 24.06%. 77k params. same as (52) but with lookbehind=6. Lookbehind is doomed it seems.
+54. 24.90%. 87k params. (4,4,4,4) x 4, degree 16
+54. xx.xx%. 87k params. (5,5,5,5) x 5, degree 8, lookbehind=1

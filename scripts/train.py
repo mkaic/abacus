@@ -13,17 +13,23 @@ from pathlib import Path
 import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 512
+BATCH_SIZE = 256
 LR = 1e-3
 DEGREE = 16
 INTERPOLATOR = LinearInterpolator
 AGGREGATOR = LinearCombination
-DATA_DEPENDENT = [False for _ in range(17)]
+
+
+def truegen():
+    yield True
+
+
+DATA_DEPENDENT = [False for _ in range(100)]
 
 COMPILE = True
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [(16, 16) for _ in range(16)]
+MID_BLOCK_SHAPES = [(4, 4, 4, 4) for _ in range(4)]
 OUTPUT_SHAPES = [(100,)]
 
 LOOKBEHIND = 1
@@ -32,7 +38,7 @@ EPOCHS = 100
 SAVE = True
 
 print(
-    f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}, {DATA_DEPENDENT=}"
+    f"{INPUT_SHAPES=}, {MID_BLOCK_SHAPES=}, {OUTPUT_SHAPES=}, {DEGREE=}, {BATCH_SIZE=}, {LR=}, {INTERPOLATOR=}, {AGGREGATOR=}, {LOOKBEHIND=}, {EPOCHS=}"
 )
 
 if not Path("abacus/weights").exists():
@@ -52,11 +58,10 @@ model = model.to(DEVICE)
 
 print(model.layers)
 print(model.lookbehinds_list)
-print(model.data_dependent)
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=UserWarning)
-    model = torch.compile(model, disable=not COMPILE, dynamic=True)
+    model = torch.compile(model, disable=not COMPILE)
 
 # Load the MNIST dataset
 train = CIFAR100(root="./abacus/data", train=True, download=True, transform=ToTensor())

@@ -59,10 +59,8 @@ class SparseAbacusModel(nn.Module):
             )
         ):
 
-            if lookbehind > 1:
-                input_shape = [lookbehind, *input_shape]
             self.layers.append(
-                self.build_layer(input_shape, output_shape, data_dependent)
+                self.build_layer(input_shape, output_shape, data_dependent, lookbehind)
             )
 
         param_count = sum(p.numel() for p in self.parameters())
@@ -70,8 +68,14 @@ class SparseAbacusModel(nn.Module):
             f"Initialized SparseAbacusModel with {param_count:,} total trainable parameters."
         )
 
-    def build_layer(self, input_shape, output_shape, data_dependent):
+    def build_layer(self, input_shape, output_shape, data_dependent, lookbehind):
         # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
+
+        residual = input_shape == output_shape
+
+        if lookbehind > 1:
+            input_shape = [lookbehind, *input_shape]
+
         if data_dependent:
             sample_points_predictor = SparseAbacusLayer(
                 input_shape=input_shape,
@@ -91,7 +95,8 @@ class SparseAbacusModel(nn.Module):
             aggregator=self.aggregator_class,
             degree=self.degree,
             sample_points_predictor=sample_points_predictor,
-            lookbehind=self.lookbehind,
+            lookbehind=lookbehind,
+            residual=residual,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -102,12 +107,14 @@ class SparseAbacusModel(nn.Module):
         for layer, lookbehind in zip(self.layers, self.lookbehinds_list):
 
             if lookbehind > 1:
-                x = torch.stack(activations[-lookbehind:], dim=1)
+                cache = torch.stack(activations[-lookbehind:], dim=1)
+            else:
+                cache = None
 
-            x = layer(x)
+            x = layer(x, cache=cache)
 
-            if lookbehind > 1:
-                x = x[..., -1]
+            # self.lookbehind is different (it's global) from just lookbehind (which is local for this layer)
+            if self.lookbehind > 1:
                 activations.append(x)
         return x
 
