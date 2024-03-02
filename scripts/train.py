@@ -4,6 +4,7 @@ from torchvision.transforms import ToTensor
 from ..src.model import SparseAbacusModel
 from ..src.interpolators import LinearInterpolator, FourierInterpolator
 from ..src.aggregators import LinearFuzzyNAND
+from ..src.sparse_abacus import SparseAbacusLayer
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
