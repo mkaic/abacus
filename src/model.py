@@ -2,8 +2,8 @@ import torch.nn as nn
 import torch
 from typing import List, Tuple
 
-from .sparse_abacus import SparseAbacusLayer
-from .interpolators import LinearInterpolator
+from .layers import SparseAbacusLayer
+from .samplers import LinearInterpolator
 from .aggregators import LinearFuzzyNAND
 
 

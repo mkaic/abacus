@@ -5,6 +5,13 @@ import numpy as np
 
 EPSILON = 1e-8
 
+# Many thanks to user enrico-stauss on the PyTorch forums for this implementation,
+# which I have butchered to fit my specific needs.
+# https://discuss.pytorch.org/t/linear-interpolation-in-pytorch/66861/10
+
+# Additional thanks to GitHub user aliutkus, whose implementation I used as a reference
+# https://github.com/aliutkus/torchinterp1d/blob/master/torchinterp1d/interp1d.py
+
 
 def unrolling_cartesian_product(cube: torch.Tensor) -> torch.Tensor:
     return torch.cartesian_prod(*cube)
@@ -132,6 +139,7 @@ class LinearInterpolator(nn.Module):
         """
         batch_size = y.shape[0]
 
+        xnew = xnew.expand(batch_size, *self.output_shape, len(self.input_shape))
         xnew = xnew.reshape(batch_size, self.n_output_el, len(self.input_shape))
         ynew = n_linear_interp(y, xnew)
         ynew = ynew.view(batch_size, *self.output_shape)
@@ -239,8 +247,81 @@ class FourierInterpolator(nn.Module):
         """
         batch_size = y.shape[0]
 
+        xnew = xnew.expand(batch_size, *self.output_shape, len(self.input_shape))
+
         xnew = xnew.reshape(batch_size, self.n_output_el, len(self.input_shape))
         ynew = n_fourier_interp(y, xnew)
         ynew = ynew.view(batch_size, *self.output_shape)
 
         return ynew
+
+
+# This torch Gaussian PDF implementation is adapted from my PainterBot project: https://github.com/mkaic/painterbot/blob/4b29f2d01b8941b3978a1690b09f0fcedd82ad53/painterbot/render.py#L12-L89
+def n_nonisotropic_gaussian_pdf(
+    coordinates: torch.Tensor,
+    mu: torch.Tensor,
+    sigma: torch.Tensor,
+) -> torch.Tensor:
+    """
+    original_values has some arbitrary shape (B x *input_shape)
+    original_coordinates has the same input_shape, but wihtout the batch dim. are in the range [0,1]
+    mu and sigma are of shape (n_sample_points x Ndims)
+    """
+
+    # Simplified N-dim Gaussian PDF function:
+    # e ^ ( -1 * sum( ( coordinates - mu ) ^ 2 / ( 2 * sigma ^ 2 ) )
+
+    # *input_shape x 1 x Ndims
+    # ->
+    # B x *input_shape x n_sample_points x Ndims
+    # after broadcasting and subtraction
+
+    coordinates = coordinates.unsqueeze(-2) - mu
+
+    coordinates = torch.square(coordinates)
+    coordinates = coordinates / (2 * torch.square(sigma))
+
+    # B x *input_shape x n_sample_points
+    pdf = torch.exp(-1 * (torch.sum(coordinates, dim=-1)))
+
+    return pdf
+
+
+class NonisotropicGaussianSampler(nn.Module):
+    def __init__(self, input_shape: Tuple[int], output_shape: Tuple[int]):
+        super().__init__()
+        self.input_shape = input_shape
+        self.output_shape = output_shape
+
+        self.ndims = len(input_shape)
+
+        # *input_shape x Ndims
+        coordinate_grid = torch.meshgrid(
+            *[torch.arange(dim, dtype=torch.float) for dim in self.input_shape],
+            indexing="ij"
+        )
+        coordinate_grid = torch.stack(coordinate_grid, dim=-1) / torch.tensor(
+            self.input_shape, dtype=torch.float
+        )
+        self.register_buffer("coordinate_grid", coordinate_grid)
+
+    def forward(
+        self, activations: torch.Tensor, mu: torch.Tensor, sigma: torch.Tensor
+    ) -> torch.Tensor:
+        batch_size = activations.shape[0]
+
+        mu = mu.view(batch_size, -1, len(self.input_shape))
+        sigma = sigma.view(batch_size, -1, len(self.input_shape))
+
+        # B x *input_shape x n_sample_points
+        pdfs = n_nonisotropic_gaussian_pdf(self.coordinate_grid, mu, sigma)
+
+        correlation = pdfs * activations.unsqueeze(-1)
+
+        # B x n_sample_points
+        dims_to_reduce = tuple(range(1, self.ndims))
+        correlation = torch.mean(correlation, dim=dims_to_reduce)
+
+        correlation = correlation.view(batch_size, *self.output_shape)
+
+        return correlation

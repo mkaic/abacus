@@ -1,5 +1,5 @@
 import torch
-from ..src.interpolators import (
+from ..src.samplers import (
     LinearInterpolator,
     FourierInterpolator,
 )

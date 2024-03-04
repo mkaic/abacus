@@ -8,16 +8,8 @@ from typing import Tuple
 
 EPSILON = 1e-8
 
-# +
-# Many thanks to user enrico-stauss on the PyTorch forums for this implementation,
-# which I have butchered to fit my specific needs.
-# https://discuss.pytorch.org/t/linear-interpolation-in-pytorch/66861/10
 
-# Additional thanks to GitHub user aliutkus, whose implementation I used as a reference
-# https://github.com/aliutkus/torchinterp1d/blob/master/torchinterp1d/interp1d.py
-
-
-class SparseAbacusLayer(nn.Module):
+class SamplerLayer(nn.Module):
     """
     Each neuron in the layer can sample from the input tensor at different points, and then aggregates those samples in some manner. The sampling points can be simple learnable parameters, or they can be made data-dependent (a la attention) by being predicted on the fly from the input using a provided predictor.
 
@@ -25,7 +17,7 @@ class SparseAbacusLayer(nn.Module):
     :param output_shape: The shape of the output tensor, ignoring the batch dimension.
     :param aggregator: A function that takes the `degree` samples for each neuron and aggregates them into a single value. By default, this is the fuzzy NAND function because `degree` defaults to 2.
     :param degree: The number of samples to take for each neuron. Defaults to 2 so that each neuron can act like a fuzzy binary logic gate.
-    :param sample_points_predictor: A predictor that takes the input tensor and returns the sampling points for the output neurons.
+    :param sample_parameters_predictor: A predictor that takes the input tensor and returns the sampling points for the output neurons.
     :param lookbehind: The number of previous layers of activations the current layer can sample from. Defaults to 1. If set > 1, the network can theoretically learn skip-connections.
     """
 
@@ -33,10 +25,10 @@ class SparseAbacusLayer(nn.Module):
         self,
         input_shape: Tuple[int],
         output_shape: Tuple[int],
-        interpolator: nn.Module,
+        sampler: nn.Module,
         aggregator: nn.Module,
         degree: int = 2,
-        sample_points_predictor: nn.Module = None,
+        sample_parameters_predictor: nn.Module = None,
         residual: bool = False,
     ) -> None:
         super().__init__()
@@ -56,54 +48,69 @@ class SparseAbacusLayer(nn.Module):
         self.residual = residual
 
         self.activations_shape = (*self.output_shape, self.degree)
-        self.interpolator = interpolator(
+        self.sampler = sampler(
             input_shape=self.input_shape, output_shape=self.activations_shape
         )
         self.aggregator = aggregator(input_shape=self.activations_shape, dim=-1)
 
-        self.sample_points_predictor = sample_points_predictor
+        self.sample_parameters_predictor = sample_parameters_predictor
 
-        if self.sample_points_predictor is None:
-            sample_points = torch.rand(*self.output_shape, self.degree, self.ndims_in)
-            self.sample_points = nn.Parameter(sample_points)
+        self.sample_parameters = self.init_sampling_parameters()
+
+    def init_sampling_parameters(self) -> Tuple[torch.Tensor]:
+        raise NotImplementedError
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
-        """
-        :param activations: Expected shape: (B x N_in). Will be clamped to [0, 1].
-        :return: Expected shape: (B x N_out).
-        """
 
         if self.residual:
             og_activations = activations.clone()
 
-        batch_size = activations.shape[0]
-
-        if self.sample_points_predictor is not None:
-            sample_points = self.sample_points_predictor(activations)
+        if self.sample_parameters_predictor is not None:
+            sample_parameters = self.sample_parameters_predictor(activations)
         else:
-            sample_points = self.sample_points
-            sample_points = sample_points.expand(
-                batch_size, *self.output_shape, self.degree, self.ndims_in
-            )  # B x *self.output_shape x degree x ndims_in
+            sample_parameters = self.sample_parameters
 
-        # if self.training and self.noisy_sampling:
-        #     sample_points = sample_points + (
-        #         (torch.randn_like(sample_points) / self.input_shape_tensor) / 10
-        #     )
+        # Make activations continuous and sample according to trainable parameters
+        activations = self.sampler(activations, sample_parameters)
 
-        sample_points = torch.clamp(sample_points, 0, 1)
-
-        # Make activations continuous and sample from them at variable points
-        activations = self.interpolator(activations, sample_points)
-        activations = self.aggregator(activations)  # B x N_out
+        # B x N_out
+        activations = self.aggregator(activations)
 
         if self.residual:
             activations = activations + og_activations
 
-        return activations
+        raise NotImplementedError
+
+
+class SparseAbacusLayer(SamplerLayer):
+    def init_sampling_parameters(self):
+        if self.sample_parameters_predictor is None:
+            sample_parameters = torch.rand(
+                *self.output_shape, self.degree, self.ndims_in
+            )
+            return (nn.Parameter(sample_parameters),)
 
     def clamp_params(self):
-        if self.sample_points_predictor is None:
-            self.sample_points.data.clamp_(0, 1)
+        if self.sample_parameters_predictor is None:
+            self.sample_parameters[0].data.clamp_(0, 1)
         else:
-            self.sample_points_predictor.clamp_params()
+            self.sample_parameters_predictor.clamp_params()
+
+
+class LearnableGaussianFilterLayer(SamplerLayer):
+    def init_params(self):
+        if self.sample_parameters_predictor is None:
+            self.mu = nn.Parameter(
+                torch.rand(*self.output_shape, self.degree, self.ndims_in)
+            )
+            self.sigma = nn.Parameter(
+                torch.rand(*self.output_shape, self.degree, self.ndims_in) * 0.3
+            )
+            return (self.mu, self.sigma)
+
+    def clamp_params(self):
+        if self.sample_parameters_predictor is None:
+            self.sample_parameters[0].data.clamp_(0, 1)
+            self.sample_parameters[1].data.clamp_(EPSILON, 1)
+        else:
+            self.sample_parameters_predictor.clamp_params()
