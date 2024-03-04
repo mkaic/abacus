@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 
-from ..src.samplers import n_nonisotropic_gaussian_pdf
+from ..src.samplers import n_anisotropic_gaussian_pdf
 
 coordinates = torch.stack(
     torch.meshgrid(
@@ -14,7 +14,7 @@ output_coordinates = coordinates.view(4, -1, 2)
 
 to_plot = [coordinates[0].sum(dim=-1), output_coordinates[0].sum(dim=-1).view(32, 32)]
 
-pdf = n_nonisotropic_gaussian_pdf(
+pdf = n_anisotropic_gaussian_pdf(
     coordinates,
     mu=torch.rand(4, 2),
     sigma=torch.rand(4, 2) * 0.3,

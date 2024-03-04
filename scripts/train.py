@@ -1,10 +1,8 @@
 import torch
 from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
-from ..src.model import SparseAbacusModel
-from ..src.samplers import LinearInterpolator, FourierInterpolator
-from ..src.aggregators import LinearFuzzyNAND
-from ..src.layers import SamplerLayer
+from ..src.model import SamplerModel
+from ..src.layers import SparseAbacusLayer, GaussianLayer
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
@@ -17,12 +15,12 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 EPOCHS = 100
 BATCH_SIZE = 256
 LR = 1e-3
-DEGREE = 2
-INTERPOLATOR = LinearInterpolator
-AGGREGATOR = LinearFuzzyNAND
+DEGREE = 4
+
+LAYER_CLASS = GaussianLayer
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [tuple([4] * 4) for _ in range(8)]
+MID_BLOCK_SHAPES = [tuple([8] * 3) for _ in range(4)]
 OUTPUT_SHAPES = [(100,)]
 
 COMPILE = True
@@ -35,8 +33,6 @@ print(
 {OUTPUT_SHAPES=}, 
 {DEGREE=}, 
 {BATCH_SIZE=}, 
-{INTERPOLATOR=}, 
-{AGGREGATOR=}, 
 {EPOCHS=}
 """
 )
@@ -44,13 +40,12 @@ print(
 if not Path("abacus/weights").exists():
     Path("abacus/weights").mkdir(parents=True)
 
-model = SparseAbacusModel(
+model = SamplerModel(
     input_shapes=INPUT_SHAPES,
     mid_block_shapes=MID_BLOCK_SHAPES,
     output_shapes=OUTPUT_SHAPES,
     degree=DEGREE,
-    interpolator_class=INTERPOLATOR,
-    aggregator_class=AGGREGATOR,
+    layer_class=LAYER_CLASS,
 )
 model = model.to(DEVICE)
 
@@ -59,7 +54,7 @@ print(model.layers)
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=UserWarning)
     model = torch.compile(model, disable=not COMPILE)
-    model: SparseAbacusModel
+    model: SamplerModel
 
 # Load the MNIST dataset
 train = CIFAR100(root="./abacus/data", train=True, download=True, transform=ToTensor())

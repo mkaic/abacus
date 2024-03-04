@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 from collections.abc import Iterable
 from typing import Tuple
+from .samplers import LinearInterpolator, AnisotropicGaussianSampler
+from .aggregators import LinearCombination, LinearFuzzyNAND
 
 
 EPSILON = 1e-8
@@ -79,16 +81,21 @@ class SamplerLayer(nn.Module):
         if self.residual:
             activations = activations + og_activations
 
-        raise NotImplementedError
+        return activations
 
 
 class SparseAbacusLayer(SamplerLayer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args, **kwargs, sampler=LinearInterpolator, aggregator=LinearFuzzyNAND
+        )
+
     def init_sampling_parameters(self):
         if self.sample_parameters_predictor is None:
             sample_parameters = torch.rand(
                 *self.output_shape, self.degree, self.ndims_in
             )
-            return (nn.Parameter(sample_parameters),)
+            return nn.ParameterList([nn.Parameter(sample_parameters)])
 
     def clamp_params(self):
         if self.sample_parameters_predictor is None:
@@ -97,16 +104,21 @@ class SparseAbacusLayer(SamplerLayer):
             self.sample_parameters_predictor.clamp_params()
 
 
-class LearnableGaussianFilterLayer(SamplerLayer):
-    def init_params(self):
+class GaussianLayer(SamplerLayer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args, **kwargs, sampler=AnisotropicGaussianSampler, aggregator=LinearCombination
+        )
+
+    def init_sampling_parameters(self):
         if self.sample_parameters_predictor is None:
             self.mu = nn.Parameter(
                 torch.rand(*self.output_shape, self.degree, self.ndims_in)
             )
             self.sigma = nn.Parameter(
-                torch.rand(*self.output_shape, self.degree, self.ndims_in) * 0.3
+                torch.full((*self.output_shape, self.degree, self.ndims_in), 0.03)
             )
-            return (self.mu, self.sigma)
+            return nn.ParameterList([self.mu, self.sigma])
 
     def clamp_params(self):
         if self.sample_parameters_predictor is None:

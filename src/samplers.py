@@ -131,12 +131,13 @@ class LinearInterpolator(nn.Module):
         self.output_shape = output_shape
         self.n_output_el = np.prod(output_shape)
 
-    def forward(self, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
+    def forward(self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]) -> torch.Tensor:
         """
         :param y: The original values.
         :param xnew: The xnew points to which y shall be interpolated.
         :return: The interpolated values ynew at xnew.
         """
+        xnew = sample_parameters[0]
         batch_size = y.shape[0]
 
         xnew = xnew.expand(batch_size, *self.output_shape, len(self.input_shape))
@@ -239,12 +240,14 @@ class FourierInterpolator(nn.Module):
         self.output_shape = output_shape
         self.n_output_el = np.prod(self.output_shape)
 
-    def forward(self, y: torch.Tensor, xnew: torch.Tensor) -> torch.Tensor:
+    def forward(self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]) -> torch.Tensor:
         """
         :param y: The original values.
         :param xnew: The xnew points to which y shall be interpolated.
         :return: The interpolated values ynew at xnew.
         """
+
+        xnew = sample_parameters[0]
         batch_size = y.shape[0]
 
         xnew = xnew.expand(batch_size, *self.output_shape, len(self.input_shape))
@@ -257,7 +260,7 @@ class FourierInterpolator(nn.Module):
 
 
 # This torch Gaussian PDF implementation is adapted from my PainterBot project: https://github.com/mkaic/painterbot/blob/4b29f2d01b8941b3978a1690b09f0fcedd82ad53/painterbot/render.py#L12-L89
-def n_nonisotropic_gaussian_pdf(
+def n_anisotropic_gaussian_pdf(
     coordinates: torch.Tensor,
     mu: torch.Tensor,
     sigma: torch.Tensor,
@@ -287,7 +290,7 @@ def n_nonisotropic_gaussian_pdf(
     return pdf
 
 
-class NonisotropicGaussianSampler(nn.Module):
+class AnisotropicGaussianSampler(nn.Module):
     def __init__(self, input_shape: Tuple[int], output_shape: Tuple[int]):
         super().__init__()
         self.input_shape = input_shape
@@ -306,20 +309,22 @@ class NonisotropicGaussianSampler(nn.Module):
         self.register_buffer("coordinate_grid", coordinate_grid)
 
     def forward(
-        self, activations: torch.Tensor, mu: torch.Tensor, sigma: torch.Tensor
+        self, activations: torch.Tensor, sample_parameters: Tuple[torch.Tensor, torch.Tensor],
     ) -> torch.Tensor:
         batch_size = activations.shape[0]
 
-        mu = mu.view(batch_size, -1, len(self.input_shape))
-        sigma = sigma.view(batch_size, -1, len(self.input_shape))
+        mu, sigma = sample_parameters
+
+        mu = mu.view(-1, len(self.input_shape))
+        sigma = sigma.view(-1, len(self.input_shape))
 
         # B x *input_shape x n_sample_points
-        pdfs = n_nonisotropic_gaussian_pdf(self.coordinate_grid, mu, sigma)
+        pdfs = n_anisotropic_gaussian_pdf(self.coordinate_grid, mu, sigma)
 
         correlation = pdfs * activations.unsqueeze(-1)
 
         # B x n_sample_points
-        dims_to_reduce = tuple(range(1, self.ndims))
+        dims_to_reduce = tuple(range(1, self.ndims+1))
         correlation = torch.mean(correlation, dim=dims_to_reduce)
 
         correlation = correlation.view(batch_size, *self.output_shape)
