@@ -15,12 +15,12 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 EPOCHS = 100
 BATCH_SIZE = 256
 LR = 1e-3
-DEGREE = 4
+DEGREE = 2
 
 LAYER_CLASS = GaussianLayer
 
 INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [tuple([8] * 3) for _ in range(4)]
+MID_BLOCK_SHAPES = [tuple([8] * 3) for _ in range(8)]
 OUTPUT_SHAPES = [(100,)]
 
 COMPILE = True

@@ -43,7 +43,7 @@ class LinearCombination(nn.Module):
         super().__init__()
         self.dim = dim
 
-        self.weights = torch.ones(input_shape, dtype=torch.float32)
+        self.weights = torch.ones(input_shape, dtype=torch.float32) / input_shape[dim]
         self.weights = nn.Parameter(self.weights)
 
         biases_shape = list(input_shape)
@@ -61,7 +61,7 @@ class LinearCombination(nn.Module):
         """
 
         activations = activations * self.weights
-        activations = torch.mean(activations, dim=self.dim)
+        activations = torch.sum(activations, dim=self.dim)
         activations = activations + self.biases
         activations = self.activation_func(activations)
 

@@ -16,5 +16,5 @@ weights_over_time = {
 
 pprint(weights_over_time.keys())
 
-print(weights_over_time["_orig_mod.layers.5.aggregator.weights"].shape)
+print(weights_over_time["_orig_mod.layers.5.sampler.sample_parameters"].shape)
 print(weights_over_time["_orig_mod.layers.5.aggregator.weights"][:, 0, 0, 0])

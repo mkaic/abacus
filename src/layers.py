@@ -107,7 +107,7 @@ class SparseAbacusLayer(SamplerLayer):
 class GaussianLayer(SamplerLayer):
     def __init__(self, *args, **kwargs):
         super().__init__(
-            *args, **kwargs, sampler=AnisotropicGaussianSampler, aggregator=LinearCombination
+            *args, **kwargs, sampler=AnisotropicGaussianSampler, aggregator=LinearFuzzyNAND
         )
 
     def init_sampling_parameters(self):
@@ -116,7 +116,7 @@ class GaussianLayer(SamplerLayer):
                 torch.rand(*self.output_shape, self.degree, self.ndims_in)
             )
             self.sigma = nn.Parameter(
-                torch.full((*self.output_shape, self.degree, self.ndims_in), 0.03)
+                torch.randn(*self.output_shape, self.degree, self.ndims_in) + 0.5
             )
             return nn.ParameterList([self.mu, self.sigma])
 
