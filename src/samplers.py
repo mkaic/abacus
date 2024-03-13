@@ -148,6 +148,67 @@ class LinearInterpolator(nn.Module):
         return ynew
 
 
+def n_binary_tree_linear_interp(
+    values: torch.Tensor, sample_points: torch.Tensor
+) -> torch.Tensor:
+    """Assumes a regular grid of original x values. Assumes sample points has B x n_sample_points x Ndims shape and are in the range [0,1]"""
+
+    # what the dimension of the data is, ignoring the batch dim
+    batchless_input_shape = values.shape[1:]
+    n_dims = len(batchless_input_shape)
+    n_sample_points = sample_points.shape[0]
+
+    assert (
+        sample_points.shape[-1] == n_dims
+    ), "Sample point coordinates must have Ndims values"
+
+    assert all([dim == 2 for dim in batchless_input_shape]), "Binary tree interp only works for inputs where all dimensions are 2."
+
+    values = values.unsqueeze(-1)
+    values = values.expand(-1, *batchless_input_shape, n_sample_points)
+
+    for i in reversed(range(n_dims)):
+
+        # n_sample_points
+        weights = sample_points[..., i]
+        # a set of n_sample_points weights for every point in the values tensor
+        # *[2 for _ in range(i)] x n_sample_points
+        weights = weights.expand(*[2 for _ in range(i)], n_sample_points)
+
+        # a, b, slope have shape B x *[2 for _ in range(i)] x n_sample_points
+        a = values[..., 0, :]
+        b = values[..., 1, :]
+        slope = b - a
+
+        values = a + (slope * weights)
+
+    return values
+
+
+class BinaryTreeLinearInterpolator(nn.Module):
+    def __init__(self, input_shape: Tuple[int], output_shape: Tuple[int]):
+        super().__init__()
+        self.input_shape = input_shape
+        self.output_shape = output_shape
+        self.n_output_el = np.prod(output_shape)
+
+    def forward(self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]) -> torch.Tensor:
+        """
+        :param y: The original values.
+        :param xnew: The xnew points to which y shall be interpolated.
+        :return: The interpolated values ynew at xnew.
+        """
+        xnew = sample_parameters[0]
+        batch_size = y.shape[0]
+
+        xnew = xnew.reshape(self.n_output_el, len(self.input_shape))
+        ynew = n_binary_tree_linear_interp(y, xnew)
+        ynew = ynew.view(batch_size, *self.output_shape)
+
+        return ynew
+
+
+
 def n_fourier_interp(
     original_values: torch.Tensor, sample_points: torch.Tensor
 ) -> torch.Tensor:

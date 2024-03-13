@@ -1,6 +1,7 @@
 import torch
 from ..src.samplers import (
     LinearInterpolator,
+    BinaryTreeLinearInterpolator,
     FourierInterpolator,
 )
 import matplotlib.pyplot as plt
@@ -89,3 +90,22 @@ for resolution in (4, 64):
     plt.colorbar(axes[1, 1].imshow(fourier_output[0]))
 
     plt.savefig(f"abacus/tests/images/interpn_test_{resolution}.png")
+
+print("CHECKING BINARY TREE INTERPOLATOR AGAINST VANILLA LINEAR INTERP")
+sizes = [(2,), (2,2), (2,2,2), (2,2,2,2)]
+
+for input_shape, output_shape in itertools.product(sizes, sizes):
+    print(input_shape, output_shape)
+
+    linear_interpolator = LinearInterpolator(input_shape, output_shape)
+    binary_tree_interpolator = BinaryTreeLinearInterpolator(input_shape, output_shape)
+
+    input_values = torch.rand(BATCH_SIZE, *input_shape)
+    output_points = torch.rand(BATCH_SIZE, *output_shape, len(input_shape))
+
+    linear_output = linear_interpolator(input_values, output_points)
+    binary_tree_output = binary_tree_interpolator(input_values, output_points)
+
+    assert torch.allclose(
+        linear_output, binary_tree_output, atol=1e-4
+    ), f"Interpolation failed. Error: {torch.abs(linear_output - binary_tree_output).max()}"

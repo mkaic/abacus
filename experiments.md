@@ -111,3 +111,6 @@ NOTE: accidentally turned on input clamping prior to FuzzyNAND and forgot, that 
 71. 21.xx%, 25k params. (4**4) x 8, weighted and biased, with an additional parameter per neuron to allow for weighting between FuzzyNAND and FuzzyNOR. No clear benefit.
 72. NIXED, TOO SLOW, 85k params. (3**6) x 8, weighted/biased FuzzyNAND. Degree 2.
 73. 24.26%, 113k params. (10**3) x 4, (8**3) x 28.
+74. 13.64%, 2.5k params. (2**5) x 2. Binary tree subcase of linear interpolation is more compute and memory-performant. Also hella parameter-efficient and way simpler to implement! Does require padding the input to
+75. xx.xx%, 42k params. (2**8) x 8. 
+76. xx.xx%, xxk params. (2**11), (2**10), (2**9), (2**8), (2**7) x 3. bottleneck arch. worrried bc it can't have skip-cons in the early layers due to shape diffs.

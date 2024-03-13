@@ -2,15 +2,13 @@ import torch.nn as nn
 import torch
 from typing import List, Tuple
 
-from .layers import SparseAbacusLayer
-
 
 class SamplerModel(nn.Module):
     """
     A neural network where neurons are free to move their own sparse connections.
     :param data_shapes: Shapes of the input tensor, the activations at each layer, and output tensor.
     :param data_dependent: Whether the sampling points of each layer are predicted on-the-fly in a data-dependent manner, a la attention, or are simply directly trainable parameters. Default: False.
-    :param degree: The number of inbound connections to each neuron. Default: 2. If any value more than 2 is chosen, you'll likely want to change the aggregation function used in SparseAbacusLayer, as it is designed for neurons with only 2 inputs.
+    :param degree: The number of inbound connections to each neuron. Default: 2. If any value more than 2 is chosen, you'll likely want to change the aggregation function used in BinaryTreeSparseAbacusLayer, as it is designed for neurons with only 2 inputs.
     :param lookbehind: The number of previous layers of activations the current layer can sample from. Defaults to 1. If set > 1, the network can theoretically learn skip-connections.
     :return: None
     """

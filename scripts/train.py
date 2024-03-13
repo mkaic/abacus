@@ -2,7 +2,7 @@ import torch
 from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
 from ..src.model import SamplerModel
-from ..src.layers import SparseAbacusLayer, GaussianLayer
+from ..src.layers import BinaryTreeSparseAbacusLayer, GaussianLayer
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
@@ -17,10 +17,10 @@ BATCH_SIZE = 256
 LR = 1e-3
 DEGREE = 2
 
-LAYER_CLASS = GaussianLayer
+LAYER_CLASS = BinaryTreeSparseAbacusLayer
 
-INPUT_SHAPES = [(3, 32, 32)]
-MID_BLOCK_SHAPES = [tuple([8] * 3) for _ in range(8)]
+INPUT_SHAPES = [tuple([2] * 12)] # (3 x 32 x 32) padded to (4 x 32 x 32), represented as a binary tree with depth 12.
+MID_BLOCK_SHAPES = [tuple([2] * 8) for _ in range(8)]
 OUTPUT_SHAPES = [(100,)]
 
 COMPILE = True
@@ -81,6 +81,10 @@ for epoch in range(EPOCHS):
 
         x, y = x.to(DEVICE), y.to(DEVICE)
 
+        # Need input shape to be a power of 2 for BinaryTreeLinearInterp
+        x = torch.cat([x, torch.zeros(x.shape[0], 1, 32, 32, device=DEVICE)], dim=1)
+        x = x.reshape(-1, *[2 for _ in range(12)])
+
         y_hat = model(x)
 
         loss = criterion(y_hat, y)
@@ -108,6 +112,9 @@ for epoch in range(EPOCHS):
             y: torch.Tensor
 
             x, y = x.to(DEVICE), y.to(DEVICE)
+
+            x = torch.cat([x, torch.zeros(x.shape[0], 1, 32, 32, device=DEVICE)], dim=1)
+            x = x.reshape(-1, *[2 for _ in range(12)])
 
             y_hat = model(x)
 

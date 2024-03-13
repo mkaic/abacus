@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from collections.abc import Iterable
 from typing import Tuple
-from .samplers import LinearInterpolator, AnisotropicGaussianSampler
+from .samplers import LinearInterpolator, BinaryTreeLinearInterpolator, AnisotropicGaussianSampler
 from .aggregators import LinearCombination, LinearFuzzyNAND
 
 
@@ -84,10 +84,10 @@ class SamplerLayer(nn.Module):
         return activations
 
 
-class SparseAbacusLayer(SamplerLayer):
+class BinaryTreeSparseAbacusLayer(SamplerLayer):
     def __init__(self, *args, **kwargs):
         super().__init__(
-            *args, **kwargs, sampler=LinearInterpolator, aggregator=LinearFuzzyNAND
+            *args, **kwargs, sampler=BinaryTreeLinearInterpolator, aggregator=LinearFuzzyNAND
         )
 
     def init_sampling_parameters(self):
@@ -102,7 +102,6 @@ class SparseAbacusLayer(SamplerLayer):
             self.sample_parameters[0].data.clamp_(0, 1)
         else:
             self.sample_parameters_predictor.clamp_params()
-
 
 class GaussianLayer(SamplerLayer):
     def __init__(self, *args, **kwargs):
