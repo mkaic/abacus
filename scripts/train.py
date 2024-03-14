@@ -12,10 +12,11 @@ from pathlib import Path
 import warnings
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DTYPE = torch.float32
 EPOCHS = 100
 BATCH_SIZE = 256
 LR = 1e-3
-DEGREE = 4
+DEGREE = 16
 
 LAYER_CLASS = BinaryTreeSparseAbacusLayer
 
@@ -23,12 +24,17 @@ INPUT_SHAPES = [
     tuple([2] * 12)
 ]  # (3 x 32 x 32) padded to (4 x 32 x 32), represented as a binary tree with depth 12.
 MID_BLOCK_SHAPES = [
-    *[tuple([2] * 7) for _ in range(8)],
+    *[tuple([2] * 5) for _ in range(8)],
 ]
 OUTPUT_SHAPES = [(100,)]
 
 COMPILE = True
 SAVE = True
+
+def reshape_func(x):
+    x = torch.cat([x, torch.zeros(x.shape[0], 1, 32, 32, device=DEVICE, dtype=DTYPE)], dim=1)
+    x = x.reshape(-1, *[2 for _ in range(12)])
+    return x
 
 print(
     f"""
@@ -52,6 +58,7 @@ model = SamplerModel(
     layer_class=LAYER_CLASS,
 )
 model = model.to(DEVICE)
+model = model.to(DTYPE)
 
 print(model.layers)
 
@@ -84,10 +91,9 @@ for epoch in range(EPOCHS):
         optimizer.zero_grad()
 
         x, y = x.to(DEVICE), y.to(DEVICE)
+        x, y = x.to(DTYPE), y.to(torch.long)
 
-        # Need input shape to be a power of 2 for BinaryTreeLinearInterp
-        x = torch.cat([x, torch.zeros(x.shape[0], 1, 32, 32, device=DEVICE)], dim=1)
-        x = x.reshape(-1, *[2 for _ in range(12)])
+        x = reshape_func(x)
 
         y_hat = model(x)
 
@@ -116,9 +122,9 @@ for epoch in range(EPOCHS):
             y: torch.Tensor
 
             x, y = x.to(DEVICE), y.to(DEVICE)
+            x, y = x.to(DTYPE), y.to(torch.long)
 
-            x = torch.cat([x, torch.zeros(x.shape[0], 1, 32, 32, device=DEVICE)], dim=1)
-            x = x.reshape(-1, *[2 for _ in range(12)])
+            x = reshape_func(x)
 
             y_hat = model(x)
 
