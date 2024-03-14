@@ -53,10 +53,10 @@ class RecursiveLinearFuzzyNAND(nn.Module):
 
         aggregators = []
         for i in range(self.depth):
-            input_shape = self.binarized_input_shape[:len(self.binarized_input_shape) - i]
-            aggregators.append(
-                LinearFuzzyNAND(input_shape=input_shape)
-            )
+            input_shape = self.binarized_input_shape[
+                : len(self.binarized_input_shape) - i
+            ]
+            aggregators.append(LinearFuzzyNAND(input_shape=input_shape))
 
         self.aggregators = nn.Sequential(*aggregators)
 
