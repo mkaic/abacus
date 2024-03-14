@@ -2,7 +2,7 @@ import torch
 from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
 from ..src.model import SamplerModel
-from ..src.layers import BinaryTreeSparseAbacusLayer, GaussianLayer
+from ..src.layers import GaussianLayer, SparseAbacusLayer
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 import torch.nn as nn
@@ -16,25 +16,30 @@ DTYPE = torch.float32
 EPOCHS = 100
 BATCH_SIZE = 256
 LR = 1e-3
-DEGREE = 16
+DEGREE = 2
 
-LAYER_CLASS = BinaryTreeSparseAbacusLayer
+LAYER_CLASS = SparseAbacusLayer
 
 INPUT_SHAPES = [
-    tuple([2] * 12)
+    tuple([4] * 6), tuple([3] * 6),
 ]  # (3 x 32 x 32) padded to (4 x 32 x 32), represented as a binary tree with depth 12.
 MID_BLOCK_SHAPES = [
-    *[tuple([2] * 5) for _ in range(8)],
+    *[tuple([2] * 8) for _ in range(8)],
+    *[tuple([2] * 7) for _ in range(8)],
 ]
 OUTPUT_SHAPES = [(100,)]
 
 COMPILE = True
 SAVE = True
 
+
 def reshape_func(x):
-    x = torch.cat([x, torch.zeros(x.shape[0], 1, 32, 32, device=DEVICE, dtype=DTYPE)], dim=1)
-    x = x.reshape(-1, *[2 for _ in range(12)])
+    x = torch.cat(
+        [x, torch.zeros(x.shape[0], 1, 32, 32, device=DEVICE, dtype=DTYPE)], dim=1
+    )
+    x = x.reshape(-1, *INPUT_SHAPES[0])
     return x
+
 
 print(
     f"""

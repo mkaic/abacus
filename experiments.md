@@ -116,3 +116,4 @@ NOTE: accidentally turned on input clamping prior to FuzzyNAND and forgot, that 
 76. NIXED%, 106k params. (2**11), (2**10), (2**9), (2**8), (2**7) x 3. bottleneck arch. worrried bc it can't have skip-cons in the early layers due to shape diffs. TOO SLOW.
 77. 17.xx%, 42k params. same as (75) but with LinearCombination instead of LinearFuzzyNAND.
 78. 20.xx%, 48k params. same as (77) but with layer size (2**5) instead of (2**8), and degree 16 instead of 2. 1/8 the layer size, 8x the degree.
+79. xx.xx%, 38k params. (2**8) x 16, degree 2. deep network.

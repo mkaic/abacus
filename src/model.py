@@ -19,6 +19,7 @@ class SamplerModel(nn.Module):
         mid_block_shapes: List[Tuple[int]],
         output_shapes: List[Tuple[int]],
         layer_class: nn.Module,
+        first_layer_class: nn.Module = None,
         degree: int = 2,
     ):
         super().__init__()
@@ -27,6 +28,9 @@ class SamplerModel(nn.Module):
         self.output_shapes = output_shapes
         self.degree = degree
         self.layer_class = layer_class
+        self.first_layer_class = first_layer_class
+        if self.first_layer_class is None:
+            self.first_layer_class = layer_class
         self.n_mid_blocks = len(mid_block_shapes)
 
         self.layers = nn.ModuleList()
@@ -39,6 +43,7 @@ class SamplerModel(nn.Module):
                 self.build_layer(
                     input_shape=data_shapes[i],
                     output_shape=data_shapes[i + 1],
+                    first_layer=True,
                 )
             )
 
@@ -65,13 +70,16 @@ class SamplerModel(nn.Module):
             f"Initialized SamplerModel with {param_count:,} total trainable parameters."
         )
 
-    def build_layer(self, input_shape, output_shape, data_dependent=False):
+    def build_layer(
+        self, input_shape, output_shape, data_dependent=False, first_layer=False
+    ):
         # If we want attention-style data dependence, we need to create a separate module which does the data-dependent prediction for the main layers.
 
         residual = input_shape == output_shape
+        layer_class = self.layer_class if not first_layer else self.first_layer_class
 
         if data_dependent:
-            sample_parameters_predictor = self.layer_class(
+            sample_parameters_predictor = layer_class(
                 input_shape=input_shape,
                 output_shape=(*output_shape, self.degree, len(input_shape)),
                 degree=self.degree,
@@ -80,7 +88,7 @@ class SamplerModel(nn.Module):
         else:
             sample_parameters_predictor = None
 
-        return self.layer_class(
+        return layer_class(
             input_shape=input_shape,
             output_shape=output_shape,
             degree=self.degree,

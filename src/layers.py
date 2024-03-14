@@ -10,6 +10,7 @@ from .samplers import (
     AnisotropicGaussianSampler,
 )
 from .aggregators import RecursiveLinearFuzzyNAND, LinearFuzzyNAND
+import numpy as np
 
 
 EPSILON = 1e-8
@@ -88,13 +89,21 @@ class SamplerLayer(nn.Module):
         return activations
 
 
-class BinaryTreeSparseAbacusLayer(SamplerLayer):
+class SparseAbacusLayer(SamplerLayer):
     def __init__(self, *args, **kwargs):
         super().__init__(
             *args,
             **kwargs,
-            sampler=BinaryTreeLinearInterpolator,
-            aggregator=RecursiveLinearFuzzyNAND,
+            sampler=(
+                BinaryTreeLinearInterpolator
+                if all([i == 2 for i in kwargs.get("input_shape")])
+                else LinearInterpolator
+            ),
+            aggregator=(
+                LinearFuzzyNAND
+                if kwargs.get("degree") == 2
+                else RecursiveLinearFuzzyNAND
+            ),
         )
 
     def init_sampling_parameters(self):
