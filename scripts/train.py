@@ -27,7 +27,7 @@ MID_BLOCK_SHAPES = [
 ]
 OUTPUT_SHAPES = [(100,)]
 
-COMPILE = False
+COMPILE = True
 SAVE = True
 
 print(
