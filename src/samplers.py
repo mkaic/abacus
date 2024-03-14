@@ -131,7 +131,9 @@ class LinearInterpolator(nn.Module):
         self.output_shape = output_shape
         self.n_output_el = np.prod(output_shape)
 
-    def forward(self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]) -> torch.Tensor:
+    def forward(
+        self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]
+    ) -> torch.Tensor:
         """
         :param y: The original values.
         :param xnew: The xnew points to which y shall be interpolated.
@@ -162,7 +164,9 @@ def n_binary_tree_linear_interp(
         sample_points.shape[-1] == n_dims
     ), "Sample point coordinates must have Ndims values"
 
-    assert all([dim == 2 for dim in batchless_input_shape]), "Binary tree interp only works for inputs where all dimensions are 2."
+    assert all(
+        [dim == 2 for dim in batchless_input_shape]
+    ), "Binary tree interp only works for inputs where all dimensions are 2."
 
     values = values.unsqueeze(-1)
     values = values.expand(-1, *batchless_input_shape, n_sample_points)
@@ -192,7 +196,9 @@ class BinaryTreeLinearInterpolator(nn.Module):
         self.output_shape = output_shape
         self.n_output_el = np.prod(output_shape)
 
-    def forward(self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]) -> torch.Tensor:
+    def forward(
+        self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]
+    ) -> torch.Tensor:
         """
         :param y: The original values.
         :param xnew: The xnew points to which y shall be interpolated.
@@ -206,7 +212,6 @@ class BinaryTreeLinearInterpolator(nn.Module):
         ynew = ynew.view(batch_size, *self.output_shape)
 
         return ynew
-
 
 
 def n_fourier_interp(
@@ -301,7 +306,9 @@ class FourierInterpolator(nn.Module):
         self.output_shape = output_shape
         self.n_output_el = np.prod(self.output_shape)
 
-    def forward(self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]) -> torch.Tensor:
+    def forward(
+        self, y: torch.Tensor, sample_parameters: Tuple[torch.Tensor]
+    ) -> torch.Tensor:
         """
         :param y: The original values.
         :param xnew: The xnew points to which y shall be interpolated.
@@ -370,7 +377,9 @@ class AnisotropicGaussianSampler(nn.Module):
         self.register_buffer("coordinate_grid", coordinate_grid)
 
     def forward(
-        self, activations: torch.Tensor, sample_parameters: Tuple[torch.Tensor, torch.Tensor],
+        self,
+        activations: torch.Tensor,
+        sample_parameters: Tuple[torch.Tensor, torch.Tensor],
     ) -> torch.Tensor:
         batch_size = activations.shape[0]
 
@@ -385,7 +394,7 @@ class AnisotropicGaussianSampler(nn.Module):
         correlation = pdfs * activations.unsqueeze(-1)
 
         # B x n_sample_points
-        dims_to_reduce = tuple(range(1, self.ndims+1))
+        dims_to_reduce = tuple(range(1, self.ndims + 1))
         correlation = torch.mean(correlation, dim=dims_to_reduce)
 
         correlation = correlation.view(batch_size, *self.output_shape)

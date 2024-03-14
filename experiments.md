@@ -112,5 +112,7 @@ NOTE: accidentally turned on input clamping prior to FuzzyNAND and forgot, that 
 72. NIXED, TOO SLOW, 85k params. (3**6) x 8, weighted/biased FuzzyNAND. Degree 2.
 73. 24.26%, 113k params. (10**3) x 4, (8**3) x 28.
 74. 13.64%, 2.5k params. (2**5) x 2. Binary tree subcase of linear interpolation is more compute and memory-performant. Also hella parameter-efficient and way simpler to implement! Does require padding the input to
-75. xx.xx%, 42k params. (2**8) x 8. 
-76. xx.xx%, xxk params. (2**11), (2**10), (2**9), (2**8), (2**7) x 3. bottleneck arch. worrried bc it can't have skip-cons in the early layers due to shape diffs.
+75. 23.24%, 42k params. (2**8) x 8. 
+76. NIXED%, 106k params. (2**11), (2**10), (2**9), (2**8), (2**7) x 3. bottleneck arch. worrried bc it can't have skip-cons in the early layers due to shape diffs. TOO SLOW.
+77. 17.xx%, 42k params. same as (75) but with LinearCombination instead of LinearFuzzyNAND.
+78. xx.xx%, 40k params. same as (77) but with layer size (2**7) instead of (2**8), and degree 4 instead of 2. Halve the layer size, double the degree.

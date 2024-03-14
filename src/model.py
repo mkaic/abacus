@@ -20,7 +20,6 @@ class SamplerModel(nn.Module):
         output_shapes: List[Tuple[int]],
         layer_class: nn.Module,
         degree: int = 2,
-
     ):
         super().__init__()
         self.input_shapes = input_shapes
@@ -90,7 +89,7 @@ class SamplerModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        
+
         for layer in self.layers:
             x = layer(x)
         return x

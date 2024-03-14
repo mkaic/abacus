@@ -92,7 +92,7 @@ for resolution in (4, 64):
     plt.savefig(f"abacus/tests/images/interpn_test_{resolution}.png")
 
 print("CHECKING BINARY TREE INTERPOLATOR AGAINST VANILLA LINEAR INTERP")
-sizes = [(2,), (2,2), (2,2,2), (2,2,2,2)]
+sizes = [(2,), (2, 2), (2, 2, 2), (2, 2, 2, 2)]
 
 for input_shape, output_shape in itertools.product(sizes, sizes):
     print(input_shape, output_shape)
