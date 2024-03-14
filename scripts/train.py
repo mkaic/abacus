@@ -23,11 +23,11 @@ INPUT_SHAPES = [
     tuple([2] * 12)
 ]  # (3 x 32 x 32) padded to (4 x 32 x 32), represented as a binary tree with depth 12.
 MID_BLOCK_SHAPES = [
-    *[tuple([2] * 7) for _ in range(8)],
+    *[tuple([2] * 2) for _ in range(2)],
 ]
 OUTPUT_SHAPES = [(100,)]
 
-COMPILE = True
+COMPILE = False
 SAVE = True
 
 print(

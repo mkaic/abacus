@@ -8,6 +8,8 @@ class LinearFuzzyNAND(nn.Module):
     def __init__(self, input_shape: Tuple[int]):
         super().__init__()
 
+        self.input_shape = input_shape
+
         self.weights = torch.full(input_shape, 1 / input_shape[-1])
         self.weights = nn.Parameter(self.weights)
 
@@ -29,7 +31,7 @@ class LinearFuzzyNAND(nn.Module):
 
         # FuzzyNAND
         activations = 1 - activations
-        activations = torch.prod(activations, dim=self.dim)
+        activations = torch.prod(activations, dim=-1)
 
         activations = activations + self.biases
 
@@ -43,21 +45,24 @@ class RecursiveLinearFuzzyNAND(nn.Module):
         super().__init__()
 
         self.degree = input_shape[-1]
-        self.depth = np.log2(self.degree)
+        assert self.degree == 2 ** int(np.log2(self.degree))
+        self.depth = int(np.log2(self.degree))
 
-        self.binarized_input_shape = [*input_shape[:-1], +[[2] * self.depth]]
+        twos = [2] * self.depth
+        self.binarized_input_shape = list(input_shape[:-1]) + twos
 
         aggregators = []
         for i in range(self.depth):
+            input_shape = self.binarized_input_shape[:len(self.binarized_input_shape) - i]
             aggregators.append(
-                LinearFuzzyNAND(input_shape=self.binarized_input_shape[:i])
+                LinearFuzzyNAND(input_shape=input_shape)
             )
 
         self.aggregators = nn.Sequential(*aggregators)
 
     def forward(self, activations: torch.Tensor) -> torch.Tensor:
 
-        activations = activations.reshape(*self.binarized_input_shape)
+        activations = activations.reshape(-1, *self.binarized_input_shape)
 
         activations = self.aggregators(activations)
 
